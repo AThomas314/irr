@@ -1,6 +1,5 @@
-use ndarray::prelude::*;
 use log::{debug, info};
-
+use ndarray::prelude::*;
 pub fn compute_irr(
     payments: Array1<f64>,
     disbursements: Array1<f64>,
@@ -13,6 +12,7 @@ pub fn compute_irr(
     debug!("Cash flow values: {:?}", values);
     let guess = make_guess(&values)?;
     let irr = newton_raphson(guess, values, tol)?;
+    info!("Final IRR: {:.6}%", irr * 100.0);
     Ok(irr)
 }
 
@@ -68,7 +68,9 @@ fn newton_raphson(
     debug!("powers {:?}", powers);
     let ones = Array1::from_elem(len, 1.0);
     debug!("ones {:?}", ones);
-    while npv.abs() > tol {
+    let mut i:u8 = 0;
+    const MAX_ITER:u8 = 20;
+    while npv.abs() > tol && i< MAX_ITER{
         let rate_factor = 1.0 + (guess / 365.25);
         let discounting_factors = Array1::from_shape_fn(len, |i| 1.0 / rate_factor.powi(i as i32));
         npv = discounting_factors.dot(&values);
@@ -80,8 +82,8 @@ fn newton_raphson(
             .map(|(i, (v, df))| -(i as f64) * (v * df / rate_factor) / 365.25)
             .sum();
         guess = guess - npv / derivative;
-        println!("Guess: {:.6}, NPV: {:.6}", guess, npv);
+        debug!("Guess: {:.6}, NPV: {:.6}", guess, npv);
+        i+=1;
     }
     Ok(guess)
 }
-
