@@ -68,9 +68,9 @@ fn newton_raphson(
     debug!("powers {:?}", powers);
     let ones = Array1::from_elem(len, 1.0);
     debug!("ones {:?}", ones);
-    let mut i:u8 = 0;
-    const MAX_ITER:u8 = 20;
-    while npv.abs() > tol && i< MAX_ITER{
+    let mut i: u8 = 0;
+    const MAX_ITER: u8 = 20;
+    while npv.abs() > tol && i < MAX_ITER {
         let rate_factor = 1.0 + (guess / 365.25);
         let discounting_factors = Array1::from_shape_fn(len, |i| 1.0 / rate_factor.powi(i as i32));
         npv = discounting_factors.dot(&values);
@@ -83,7 +83,7 @@ fn newton_raphson(
             .sum();
         guess = guess - npv / derivative;
         debug!("Guess: {:.6}, NPV: {:.6}", guess, npv);
-        i+=1;
+        i += 1;
     }
     Ok(guess)
 }

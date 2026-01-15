@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+chrono = "0.4.43"
 env_logger = "0.11.8"
 log = "0.4.29"
 ndarray = "0.17.1"
-polars = { version = "0.52.0", features = ["lazy", "ndarray", "strings", "timezones"] }
+polars = { version = "0.52.0", features = ["dtype-categorical", "dtype-date", "lazy", "ndarray", "partition_by", "strings", "timezones"] }
 rayon = "1.11.0"
 thiserror = "2.0.17"
+tokio = "1.49.0"
 
 [profile.release]
 lto = true
