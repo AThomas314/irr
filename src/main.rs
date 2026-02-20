@@ -5,12 +5,10 @@ use errors::BorrowingError;
 mod funcs;
 // use comps::compute_irr;
 use funcs::*;
-use log::{debug, info};
-use rayon::prelude::*;
+use log::debug;
 
 use tokio;
 mod structs;
-use consts::*;
 use structs::*;
 #[tokio::main]
 async fn main() -> Result<(), BorrowingError> {
@@ -24,7 +22,7 @@ async fn main() -> Result<(), BorrowingError> {
             r"C:\Users\ashis\OneDrive\Desktop\rust\irr\disbursements 1116 3.csv"
         ))
     );
-    let borrowings = Borrowings::new(payments.unwrap(), disbursements.unwrap());
+    let borrowings = Borrowings::new(payments??, disbursements??);
     debug!("{:#?}", borrowings);
     // info!("Borrowings {:#?}", borrowings);
     // Borrowing::process(&mut borrowings);

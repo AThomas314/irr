@@ -1,11 +1,7 @@
-use crate::consts::*;
-use log::{debug, info};
+use crate::{consts::*, errors::BorrowingError};
 use polars::prelude::*;
-use std::{
-    collections::{BTreeMap, HashMap},
-    usize,
-};
-pub fn read_disbursements(path: &str) -> DataFrame {
+use std::usize;
+pub fn read_disbursements(path: &str) -> Result<DataFrame, BorrowingError> {
     let schema = Schema::from_iter(vec![
         Field::new(PlSmallStr::from_str(DATE_COL), DataType::String),
         Field::new(PlSmallStr::from_str(LOAN_AMOUNT_COL), DataType::String),
@@ -79,17 +75,16 @@ pub fn read_disbursements(path: &str) -> DataFrame {
 
     let df: LazyFrame = LazyCsvReader::new(PlPath::from_str(path))
         .with_schema(Some(Arc::from(schema)))
-        .finish()
-        .unwrap()
+        .finish()?
         .with_columns(expressions)
         .drop_nulls(None)
         .with_columns(comps)
         .select(SELECTOR.map(col));
 
-    df.collect().unwrap()
+    Ok(df.collect()?)
 }
 
-pub fn read_payments(path: &str) -> DataFrame {
+pub fn read_payments(path: &str) -> Result<DataFrame, BorrowingError> {
     let schema = Schema::from_iter(vec![
         Field::new(PlSmallStr::from_str(DATE_COL), DataType::String),
         Field::new(PlSmallStr::from_str(RATE_COL), DataType::String),
@@ -151,12 +146,11 @@ pub fn read_payments(path: &str) -> DataFrame {
     // }
     let df: LazyFrame = LazyCsvReader::new(PlPath::from_str(path))
         .with_schema(Some(Arc::from(schema)))
-        .finish()
-        .unwrap()
+        .finish()?
         .with_columns(expressions)
         .with_column((col(INTEREST_PAID) + col(PRINCIPAL_COL)).alias(TOTAL_PAID))
         .drop_nulls(None)
         .select(SELECTOR.map(col));
 
-    df.collect().unwrap()
+    Ok(df.collect()?)
 }

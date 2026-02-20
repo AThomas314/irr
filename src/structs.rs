@@ -1,9 +1,7 @@
-use crate::comps::compute_irr;
 use crate::consts::*;
 use crate::errors::BorrowingError;
-use log::debug;
 use polars::prelude::*;
-
+use std::ops::Range;
 #[derive(Debug)]
 pub struct Borrowings {
     pub ids: Vec<Arc<String>>,
@@ -17,6 +15,9 @@ pub struct Borrowings {
     pub date_disbursements: Vec<i32>,
     pub standalone_disbursements: Vec<f64>,
     pub consol_disbursements: Vec<f64>,
+    // pub loan_to_amend_offsets: Vec<Range<usize>>,
+    // pub amend_to_payment_offsets: Vec<Range<usize>>,
+    // pub amend_to_disbursement_offsets: Vec<Range<usize>>,
 }
 
 impl Borrowings {
@@ -55,87 +56,23 @@ impl Borrowings {
 
         payments_df.rechunk_mut();
         disbursements_df.rechunk_mut();
-
         let unique_loans_df = disbursements_df
             .clone()
             .lazy()
             .group_by_stable([col(LOAN_ID)])
             .agg([col(LOCATION).first(), col(CAP_DATE_COL).first()])
             .collect()?;
-        let ids: Vec<Arc<String>> = unique_loans_df
-            .column(LOAN_ID)?
-            .str()?
-            .into_no_null_iter() // Skips null-checking branches
-            .map(|s| Arc::new(s.to_string()))
-            .collect();
-        let capitalization_dates: Vec<i32> = unique_loans_df
-            .column(CAP_DATE_COL)?
-            .cast(&DataType::Int32)?
-            .i32()?
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-        let locations: Vec<Arc<String>> = unique_loans_df
-            .column(LOCATION)?
-            .str()?
-            .into_no_null_iter()
-            .map(|s| Arc::new(s.to_owned())) // Directly creates the String and wraps it
-            .collect();
-
-        let interest_payments: Vec<f64> = payments_df
-            .column(INTEREST_PAID)?
-            .f64()?
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-        let principal_payments: Vec<f64> = payments_df
-            .column(PRINCIPAL_COL)?
-            .f64()
-            .unwrap()
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-        let total_payments: Vec<f64> = payments_df
-            .column(TOTAL_PAID)?
-            .f64()
-            .unwrap()
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-        let date_payments: Vec<i32> = payments_df
-            .column(DATE_COL)?
-            .cast(&DataType::Int32)?
-            .i32()?
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-        let amendment_dates: Vec<i32> = payments_df
-            .column(AMENDMENT_DATE_COL)?
-            .cast(&DataType::Int32)?
-            .i32()?
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-
-        let date_disbursements: Vec<i32> = disbursements_df
-            .column(DATE_COL)?
-            .cast(&DataType::Int32)?
-            .i32()?
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-        let standalone_disbursements: Vec<f64> = disbursements_df
-            .column(STANDALONE)?
-            .f64()?
-            .cont_slice()
-            .unwrap()
-            .to_vec();
-        let consol_disbursements: Vec<f64> = disbursements_df
-            .column(CONSOL)?
-            .f64()?
-            .cont_slice()
-            .unwrap()
-            .to_vec();
+        let ids: Vec<Arc<String>> = extract_strs(&unique_loans_df, LOAN_ID)?;
+        let capitalization_dates: Vec<i32> = extract_i32(&unique_loans_df, CAP_DATE_COL)?;
+        let locations: Vec<Arc<String>> = extract_strs(&unique_loans_df, LOCATION)?;
+        let interest_payments: Vec<f64> = extractf64(&payments_df, INTEREST_PAID)?;
+        let principal_payments: Vec<f64> = extractf64(&payments_df, PRINCIPAL_COL)?;
+        let total_payments: Vec<f64> = extractf64(&payments_df, TOTAL_PAID)?;
+        let date_payments: Vec<i32> = extract_i32(&payments_df, DATE_COL)?;
+        let amendment_dates: Vec<i32> = extract_i32(&payments_df, AMENDMENT_DATE_COL)?;
+        let date_disbursements: Vec<i32> = extract_i32(&disbursements_df, DATE_COL)?;
+        let standalone_disbursements: Vec<f64> = extractf64(&disbursements_df, STANDALONE)?;
+        let consol_disbursements: Vec<f64> = extractf64(&disbursements_df, CONSOL)?;
 
         Ok(Self {
             ids,
@@ -151,4 +88,29 @@ impl Borrowings {
             consol_disbursements,
         })
     }
+}
+
+fn extract_strs(df: &DataFrame, col: &str) -> Result<Vec<Arc<String>>, BorrowingError> {
+    Ok(df
+        .column(col)?
+        .str()?
+        .into_no_null_iter()
+        .map(|s| Arc::new(s.to_owned())) // Directly creates the String and wraps it
+        .collect())
+}
+fn extract_i32(df: &DataFrame, col: &str) -> Result<Vec<i32>, BorrowingError> {
+    Ok(df
+        .column(col)?
+        .cast(&DataType::Int32)?
+        .i32()?
+        .cont_slice()?
+        .to_vec())
+}
+fn extractf64(df: &DataFrame, col: &str) -> Result<Vec<f64>, BorrowingError> {
+    Ok(df
+        .column(col)?
+        .cast(&DataType::Float64)?
+        .f64()?
+        .cont_slice()?
+        .to_vec())
 }
