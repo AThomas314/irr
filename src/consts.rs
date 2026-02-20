@@ -13,5 +13,3 @@ pub static CAP_DATE_COL: &str = "Capitalization Date";
 pub static TOTAL_PAID: &str = "Total Paid";
 pub static CONSOL: &str = "Consol";
 pub static STANDALONE: &str = "Standalone";
-
-//
