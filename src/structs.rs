@@ -1,11 +1,12 @@
 use crate::consts::*;
 use crate::errors::BorrowingError;
+use log::debug;
 use polars::prelude::*;
 use std::ops::Range;
 #[derive(Debug)]
 pub struct Borrowings {
-    pub ids: Vec<Arc<String>>,
-    pub locations: Vec<Arc<String>>,
+    pub ids: Vec<Arc<str>>,
+    pub locations: Vec<Arc<str>>,
     pub amendment_dates: Vec<i32>,
     pub capitalization_dates: Vec<i32>,
     pub interest_payments: Vec<f64>,
@@ -15,9 +16,8 @@ pub struct Borrowings {
     pub date_disbursements: Vec<i32>,
     pub standalone_disbursements: Vec<f64>,
     pub consol_disbursements: Vec<f64>,
-    // pub loan_to_amend_offsets: Vec<Range<usize>>,
-    // pub amend_to_payment_offsets: Vec<Range<usize>>,
-    // pub amend_to_disbursement_offsets: Vec<Range<usize>>,
+    pub payments_ranges: Vec<Range<usize>>,
+    pub disbursements_ranges: Vec<Range<usize>>,
 }
 
 impl Borrowings {
@@ -62,9 +62,9 @@ impl Borrowings {
             .group_by_stable([col(LOAN_ID)])
             .agg([col(LOCATION).first(), col(CAP_DATE_COL).first()])
             .collect()?;
-        let ids: Vec<Arc<String>> = extract_strs(&unique_loans_df, LOAN_ID)?;
+        let ids: Vec<Arc<str>> = extract_strs(&unique_loans_df, LOAN_ID)?;
         let capitalization_dates: Vec<i32> = extract_i32(&unique_loans_df, CAP_DATE_COL)?;
-        let locations: Vec<Arc<String>> = extract_strs(&unique_loans_df, LOCATION)?;
+        let locations: Vec<Arc<str>> = extract_strs(&unique_loans_df, LOCATION)?;
         let interest_payments: Vec<f64> = extractf64(&payments_df, INTEREST_PAID)?;
         let principal_payments: Vec<f64> = extractf64(&payments_df, PRINCIPAL_COL)?;
         let total_payments: Vec<f64> = extractf64(&payments_df, TOTAL_PAID)?;
@@ -73,7 +73,10 @@ impl Borrowings {
         let date_disbursements: Vec<i32> = extract_i32(&disbursements_df, DATE_COL)?;
         let standalone_disbursements: Vec<f64> = extractf64(&disbursements_df, STANDALONE)?;
         let consol_disbursements: Vec<f64> = extractf64(&disbursements_df, CONSOL)?;
-
+        let payments_ranges = create_ranges(&payments_df, ids.len() + 2)?;
+        let disbursements_ranges = create_ranges(&disbursements_df, ids.len() + 2)?;
+        debug!(" disbursements_ranges {:#?}", disbursements_ranges);
+        debug!(" payments_ranges {:#?}", payments_ranges);
         Ok(Self {
             ids,
             locations,
@@ -86,16 +89,18 @@ impl Borrowings {
             date_disbursements,
             standalone_disbursements,
             consol_disbursements,
+            payments_ranges,
+            disbursements_ranges,
         })
     }
 }
 
-fn extract_strs(df: &DataFrame, col: &str) -> Result<Vec<Arc<String>>, BorrowingError> {
+fn extract_strs(df: &DataFrame, col: &str) -> Result<Vec<Arc<str>>, BorrowingError> {
     Ok(df
         .column(col)?
         .str()?
         .into_no_null_iter()
-        .map(|s| Arc::new(s.to_owned())) // Directly creates the String and wraps it
+        .map(|s| Arc::from(s))
         .collect())
 }
 fn extract_i32(df: &DataFrame, col: &str) -> Result<Vec<i32>, BorrowingError> {
@@ -113,4 +118,33 @@ fn extractf64(df: &DataFrame, col: &str) -> Result<Vec<f64>, BorrowingError> {
         .f64()?
         .cont_slice()?
         .to_vec())
+}
+
+fn create_ranges(df: &DataFrame, len: usize) -> Result<Vec<Range<usize>>, BorrowingError> {
+    let ids: Vec<&str> = df
+        .column(LOAN_ID)?
+        .str()?
+        .into_no_null_iter()
+        .map(|s| s)
+        .collect();
+    let mut map = Vec::with_capacity(len);
+    map.push(0);
+    for i in 0..ids.len() - 1 {
+        if ids[i] != ids[i + 1] {
+            map.push(i);
+        }
+    }
+    map.push(ids.len());
+    Ok(usize_to_range(map))
+}
+fn usize_to_range(usizes: Vec<usize>) -> Vec<Range<usize>> {
+    let mut ranges = Vec::with_capacity(usizes.len() - 1);
+    for i in 0..usizes.len() - 1 {
+        let r = Range {
+            start: usizes[i],
+            end: usizes[i + 1],
+        };
+        ranges.push(r);
+    }
+    ranges
 }

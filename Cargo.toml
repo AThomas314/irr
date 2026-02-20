@@ -15,7 +15,7 @@ tokio = "1.49.0"
 [profile.dev]
 codegen-units = 20
 [profile.release]
-lto = true
+lto = "fat"
 codegen-units = 1
 panic = "abort"
 opt-level = 3

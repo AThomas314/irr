@@ -23,7 +23,7 @@ async fn main() -> Result<(), BorrowingError> {
         ))
     );
     let borrowings = Borrowings::new(payments??, disbursements??);
-    debug!("{:#?}", borrowings);
+    // debug!("{:#?}", borrowings);
     // info!("Borrowings {:#?}", borrowings);
     // Borrowing::process(&mut borrowings);
     Ok(())
