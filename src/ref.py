@@ -12,43 +12,6 @@ date_col = 'Date'
 
 
 
-def compute_irr(payments : ndarray , disbursements : ndarray , tol : float = 0.01)->float:
-    def make_guess(values:ndarray[float64])->int:
-        rates = array([[5],[6],[7],[8],[9],[10],[12],[15],[18],[20]])/100
-        powers = arange(0,len(values),1)
-        discounting_factors = 1/power(ones((len(rates),len(values)))*(rates/365.25)+1,powers) 
-        idx = abs(dot(values,discounting_factors.transpose())).argmin()
-        rate = rates[idx].item()
-        return rate
-
-    def newton_raphson( guess : int,
-                        values : ndarray,
-                        tol : float)->float:
-        npv = tol*2
-        powers = arange(0,len(values),1)
-        onez = ones(len(values)).transpose()
-        i = 1
-        while abs(npv)>tol:
-            discounting_factors = 1/power(onez*((guess/365.25)+1),powers)
-            npv =  dot(values,discounting_factors)
-            derivative = dot(values,discounting_factors/((guess/365.25)+1)*powers)*-1/365.25
-            if abs(derivative) < 1e-10: #added check to avoid divide by zero.
-                print("Derivative close to zero. Cannot proceed")
-                print(f"Best Value was {npv} at {guess}")
-                return guess
-            guess-=npv/derivative
-            i+=1
-        # print(f'irr of {guess} found in {i} iterations')
-        
-        return guess
-    z = array([0])
-    payments = np_concat([z,payments])
-    disbursements = np_concat([disbursements,z])
-    values = payments - disbursements
-    guess = make_guess(values)
-    irr = newton_raphson(guess,values,tol)
-    return irr
-
 
 class Borrowing:
     __slots__ = ['payments','disbursements','location','cap_date','disbursements_consol','schedule','consol_schedule','id']
