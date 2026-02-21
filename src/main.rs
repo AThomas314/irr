@@ -12,7 +12,7 @@ mod structs;
 use structs::*;
 #[tokio::main]
 async fn main() -> Result<(), BorrowingError> {
-    env_logger::init();
+    env_logger::init(); //initialize the logger to be used in debug and prod
 
     let (payments, disbursements) = tokio::join!(
         tokio::task::spawn_blocking(move || read_payments(
@@ -21,10 +21,11 @@ async fn main() -> Result<(), BorrowingError> {
         tokio::task::spawn_blocking(move || read_disbursements(
             r"C:\Users\ashis\OneDrive\Desktop\rust\irr\disbursements 1116 3.csv"
         ))
-    );
-    let borrowings = Borrowings::new(payments??, disbursements??);
+    ); //Read the files in parallel
+    let borrowings = Borrowings::new(payments??, disbursements??)?; //Create the borrowings struct
     // debug!("{:#?}", borrowings);
     // info!("Borrowings {:#?}", borrowings);
     // Borrowing::process(&mut borrowings);
+    borrowings.process()?;
     Ok(())
 }

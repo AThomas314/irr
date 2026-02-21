@@ -1,3 +1,4 @@
+//This module contains the logic to compute the irr
 use crate::errors::BorrowingError;
 use log::debug;
 

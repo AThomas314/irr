@@ -5,55 +5,33 @@ use polars::prelude::*;
 use std::ops::Range;
 #[derive(Debug)]
 pub struct Borrowings {
-    pub ids: Vec<Arc<str>>,
-    pub locations: Vec<Arc<str>>,
-    pub amendment_dates: Vec<i32>,
-    pub capitalization_dates: Vec<i32>,
-    pub interest_payments: Vec<f64>,
-    pub principal_payments: Vec<f64>,
-    pub total_payments: Vec<f64>,
-    pub date_payments: Vec<i32>,
-    pub date_disbursements: Vec<i32>,
-    pub standalone_disbursements: Vec<f64>,
-    pub consol_disbursements: Vec<f64>,
-    pub payments_ranges: Vec<Range<usize>>,
-    pub disbursements_ranges: Vec<Range<usize>>,
+    //class definition
+    ids: Vec<Arc<str>>,                      // len = num loans
+    locations: Vec<Arc<str>>,                // len = num loans
+    payment_amendment_dates: Vec<i32>,       //len = lenghth of payments file
+    disbursement_amendment_dates: Vec<i32>,  //len = lenghth of disbursements file
+    capitalization_dates: Vec<i32>,          //len = num loans
+    interest_payments: Vec<f64>,             //len = lenghth of payments file
+    principal_payments: Vec<f64>,            //len = lenghth of payments file
+    total_payments: Vec<f64>,                //len = lenghth of payments file
+    date_payments: Vec<i32>,                 //len = lenghth of payments file
+    date_disbursements: Vec<i32>,            //len = lenghth of disbursements file
+    standalone_disbursements: Vec<f64>,      //len = lenghth of disbursements file
+    consol_disbursements: Vec<f64>,          //len = lenghth of disbursements file
+    payments_ranges: Vec<Range<usize>>,      // len = num loans
+    disbursements_ranges: Vec<Range<usize>>, // len = num loans
 }
 
 impl Borrowings {
     pub fn new(
+        // __init__
         mut payments_df: DataFrame,
         mut disbursements_df: DataFrame,
     ) -> Result<Self, BorrowingError> {
-        let payment_ids = payments_df
-            .clone()
-            .lazy()
-            .select([col(LOAN_ID)])
-            .unique(None, UniqueKeepStrategy::Any);
-        let disbursement_ids = disbursements_df
-            .clone()
-            .lazy()
-            .select([col(LOAN_ID)])
-            .unique(None, UniqueKeepStrategy::Any);
-        payments_df = payments_df
-            .lazy()
-            .join(
-                disbursement_ids.clone(),
-                [col(LOAN_ID)],
-                [col(LOAN_ID)],
-                JoinArgs::new(JoinType::Semi),
-            )
-            .collect()?;
-        disbursements_df = disbursements_df
-            .lazy()
-            .join(
-                payment_ids,
-                [col(LOAN_ID)],
-                [col(LOAN_ID)],
-                JoinArgs::new(JoinType::Semi),
-            )
-            .collect()?;
-
+        let payment_ids = unique_loan_ids(payments_df.clone());
+        let disbursement_ids = unique_loan_ids(disbursements_df.clone());
+        payments_df = semi_joins(payments_df, disbursement_ids.clone())?;
+        disbursements_df = semi_joins(disbursements_df, payment_ids.clone())?;
         payments_df.rechunk_mut();
         disbursements_df.rechunk_mut();
         let unique_loans_df = disbursements_df
@@ -69,7 +47,8 @@ impl Borrowings {
         let principal_payments: Vec<f64> = extractf64(&payments_df, PRINCIPAL_COL)?;
         let total_payments: Vec<f64> = extractf64(&payments_df, TOTAL_PAID)?;
         let date_payments: Vec<i32> = extract_i32(&payments_df, DATE_COL)?;
-        let amendment_dates: Vec<i32> = extract_i32(&payments_df, AMENDMENT_DATE_COL)?;
+        let payment_amendment_dates: Vec<i32> = extract_i32(&payments_df, AMENDMENT_DATE_COL)?;
+        let disbursement_amendment_dates: Vec<i32> = extract_i32(&payments_df, AMENDMENT_DATE_COL)?;
         let date_disbursements: Vec<i32> = extract_i32(&disbursements_df, DATE_COL)?;
         let standalone_disbursements: Vec<f64> = extractf64(&disbursements_df, STANDALONE)?;
         let consol_disbursements: Vec<f64> = extractf64(&disbursements_df, CONSOL)?;
@@ -80,7 +59,8 @@ impl Borrowings {
         Ok(Self {
             ids,
             locations,
-            amendment_dates,
+            payment_amendment_dates,
+            disbursement_amendment_dates,
             capitalization_dates,
             interest_payments,
             principal_payments,
@@ -93,25 +73,68 @@ impl Borrowings {
             disbursements_ranges,
         })
     }
+    pub fn process(self) -> Result<(), BorrowingError> {
+        //Result<HashMap<String, DataFrame>, BorrowingError> {
+        for i in 0..self.ids.len() {
+            let id = &self.ids[i];
+            let location = &self.locations[i];
+            let payments_ranges = &self.payments_ranges[i];
+            let disbursements_ranges = &self.disbursements_ranges[i];
+            let payments_amendment_dates: &[i32] =
+                &self.payment_amendment_dates[payments_ranges.start..payments_ranges.end];
+            let disbursements_amendment_dates: &[i32] = &self.disbursement_amendment_dates
+                [disbursements_ranges.start..disbursements_ranges.end];
+            let disbursements_amendment_splits: Vec<Range<usize>> =
+                get_amendment_splits(disbursements_amendment_dates)?;
+            let payments_amendment_splits: Vec<Range<usize>> =
+                get_amendment_splits(payments_amendment_dates)?;
+            let capitalization_date = &self.capitalization_dates[i];
+            let standalone_disbursements = &self.standalone_disbursements
+                [disbursements_ranges.start..disbursements_ranges.end];
+            let date_disbursements =
+                &self.date_disbursements[disbursements_ranges.start..disbursements_ranges.end];
+            let date_payments = &self.date_payments[payments_ranges.start..payments_ranges.end];
+            let total_payments = &self.total_payments[payments_ranges.start..payments_ranges.end];
+            let principal_payments =
+                &self.principal_payments[payments_ranges.start..payments_ranges.end];
+            let interest_payments =
+                &self.interest_payments[payments_ranges.start..payments_ranges.end];
+            debug!(
+                "{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?}",
+                id,
+                location,
+                payments_ranges,
+                disbursements_ranges,
+                payments_amendment_dates,
+                disbursements_amendment_dates,
+                disbursements_amendment_splits,
+                payments_amendment_splits
+            );
+        }
+        Ok(())
+    }
 }
 
 fn extract_strs(df: &DataFrame, col: &str) -> Result<Vec<Arc<str>>, BorrowingError> {
+    //extract the string columns of the dataframe as an Arc<str>
     Ok(df
         .column(col)?
         .str()?
-        .into_no_null_iter()
+        .into_no_null_iter() //Assumes no nulls for performance, throws an error if nulls found, we've dropped nulls earlier to prevent this
         .map(|s| Arc::from(s))
         .collect())
 }
 fn extract_i32(df: &DataFrame, col: &str) -> Result<Vec<i32>, BorrowingError> {
+    //extract the date columns from the dataframe as an i32
     Ok(df
         .column(col)?
         .cast(&DataType::Int32)?
         .i32()?
-        .cont_slice()?
+        .cont_slice()? // assumes all chunks have become one single contiguous chunk, and does no null checks. We've rechuncked dataframes earlier and dropped nulls
         .to_vec())
 }
 fn extractf64(df: &DataFrame, col: &str) -> Result<Vec<f64>, BorrowingError> {
+    //extract the numeric columns from the dataframe as an f64
     Ok(df
         .column(col)?
         .cast(&DataType::Float64)?
@@ -131,20 +154,44 @@ fn create_ranges(df: &DataFrame, len: usize) -> Result<Vec<Range<usize>>, Borrow
     map.push(0);
     for i in 0..ids.len() - 1 {
         if ids[i] != ids[i + 1] {
-            map.push(i);
+            map.push(i + 1);
         }
     }
     map.push(ids.len());
     Ok(usize_to_range(map))
 }
 fn usize_to_range(usizes: Vec<usize>) -> Vec<Range<usize>> {
-    let mut ranges = Vec::with_capacity(usizes.len() - 1);
-    for i in 0..usizes.len() - 1 {
-        let r = Range {
-            start: usizes[i],
-            end: usizes[i + 1],
-        };
-        ranges.push(r);
+    usizes.windows(2).map(|w| w[0]..w[1]).collect()
+}
+
+fn get_amendment_splits(dates: &[i32]) -> Result<Vec<Range<usize>>, BorrowingError> {
+    let count =
+        dates.windows(2).filter(|w| w[0] != w[1]).count() + if dates.is_empty() { 0 } else { 1 };
+    let mut v = Vec::with_capacity(count);
+    v.push(0);
+    for i in 0..dates.len() - 1 {
+        if dates[i] != dates[i + 1] {
+            v.push(i + 1);
+        }
     }
-    ranges
+    v.push(dates.len());
+    Ok(usize_to_range(v))
+}
+
+fn unique_loan_ids(df: DataFrame) -> LazyFrame {
+    df.lazy()
+        .select([col(LOAN_ID)])
+        .unique(None, UniqueKeepStrategy::Any)
+}
+
+fn semi_joins(df: DataFrame, other: LazyFrame) -> Result<DataFrame, BorrowingError> {
+    Ok(df
+        .lazy()
+        .join(
+            other,
+            [col(LOAN_ID)],
+            [col(LOAN_ID)],
+            JoinArgs::new(JoinType::Semi),
+        )
+        .collect()?)
 }

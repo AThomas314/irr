@@ -12,8 +12,8 @@ pub fn read_disbursements(path: &str) -> Result<DataFrame, BorrowingError> {
         Field::new(PlSmallStr::from_str(AMENDMENT_DATE_COL), DataType::String),
         Field::new(PlSmallStr::from_str(LOCATION), DataType::String),
         Field::new(PlSmallStr::from_str(CAP_DATE_COL), DataType::String),
-    ]);
-    const FLOAT_COLS: [&str; 4] = [LOAN_AMOUNT_COL, CG_COL, CG_GST_COL, LOAN_EXPS_COL];
+    ]); //Read all required columns as String
+    const FLOAT_COLS: [&str; 4] = [LOAN_AMOUNT_COL, CG_COL, CG_GST_COL, LOAN_EXPS_COL]; //Defining the columns as an array of consts for performance and easy iteration
     const DATE_COLS: [&str; 3] = [DATE_COL, AMENDMENT_DATE_COL, CAP_DATE_COL];
     // const CATEGORICAL_COLS: [&str; 2] = [LOCATION, LOAN_ID];
     const SELECTOR: [&str; 7] = [
@@ -25,7 +25,7 @@ pub fn read_disbursements(path: &str) -> Result<DataFrame, BorrowingError> {
         LOCATION,
         LOAN_ID,
     ];
-    let mut expressions: Vec<Expr> = Vec::with_capacity(7);
+    let mut expressions: Vec<Expr> = Vec::with_capacity(7); //creating a new empty Vec with the capacity predefined to avoid allocations
 
     for c in FLOAT_COLS {
         expressions.push(
@@ -79,12 +79,13 @@ pub fn read_disbursements(path: &str) -> Result<DataFrame, BorrowingError> {
         .with_columns(expressions)
         .drop_nulls(None)
         .with_columns(comps)
-        .select(SELECTOR.map(col));
+        .select(SELECTOR.map(col)); //creating the lazyframe and defining the operations thereon
 
-    Ok(df.collect()?)
+    Ok(df.collect()?) //returning a Result containing the materialized dataframe
 }
 
 pub fn read_payments(path: &str) -> Result<DataFrame, BorrowingError> {
+    //Follows the same logic as the read_disbursements function, hence have not commented
     let schema = Schema::from_iter(vec![
         Field::new(PlSmallStr::from_str(DATE_COL), DataType::String),
         Field::new(PlSmallStr::from_str(RATE_COL), DataType::String),
