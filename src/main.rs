@@ -23,9 +23,10 @@ async fn main() -> Result<(), BorrowingError> {
         ))
     ); //Read the files in parallel
     let borrowings = Borrowings::new(payments??, disbursements??)?; //Create the borrowings struct
+    println!("{:#?}", borrowings);
     // debug!("{:#?}", borrowings);
     // info!("Borrowings {:#?}", borrowings);
     // Borrowing::process(&mut borrowings);
-    borrowings.process()?;
+    // borrowings.process()?;
     Ok(())
 }

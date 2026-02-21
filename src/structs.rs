@@ -76,10 +76,13 @@ impl Borrowings {
     pub fn process(self) -> Result<(), BorrowingError> {
         //Result<HashMap<String, DataFrame>, BorrowingError> {
         for i in 0..self.ids.len() {
+            //Loan Level Data Begins
             let id = &self.ids[i];
             let location = &self.locations[i];
             let payments_ranges = &self.payments_ranges[i];
             let disbursements_ranges = &self.disbursements_ranges[i];
+            let capitalization_date = &self.capitalization_dates[i];
+            //Loan Level Data Ends
             let payments_amendment_dates: &[i32] =
                 &self.payment_amendment_dates[payments_ranges.start..payments_ranges.end];
             let disbursements_amendment_dates: &[i32] = &self.disbursement_amendment_dates
@@ -88,7 +91,6 @@ impl Borrowings {
                 get_amendment_splits(disbursements_amendment_dates)?;
             let payments_amendment_splits: Vec<Range<usize>> =
                 get_amendment_splits(payments_amendment_dates)?;
-            let capitalization_date = &self.capitalization_dates[i];
             let standalone_disbursements = &self.standalone_disbursements
                 [disbursements_ranges.start..disbursements_ranges.end];
             let date_disbursements =
@@ -99,6 +101,10 @@ impl Borrowings {
                 &self.principal_payments[payments_ranges.start..payments_ranges.end];
             let interest_payments =
                 &self.interest_payments[payments_ranges.start..payments_ranges.end];
+            // "Amendment" 1
+            let payments_slice = payments_amendment_splits[0];
+            let disbursements_slice = disbursements_amendment_splits[0];
+            let cur_
             debug!(
                 "{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?}",
                 id,
