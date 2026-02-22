@@ -10,6 +10,7 @@ use log::debug;
 use tokio;
 mod structs;
 use structs::*;
+
 #[tokio::main]
 async fn main() -> Result<(), BorrowingError> {
     env_logger::init(); //initialize the logger to be used in debug and prod
@@ -23,10 +24,10 @@ async fn main() -> Result<(), BorrowingError> {
         ))
     ); //Read the files in parallel
     let borrowings = Borrowings::new(payments??, disbursements??)?; //Create the borrowings struct
-    println!("{:#?}", borrowings);
+    // println!("{:#?}", borrowings);
     // debug!("{:#?}", borrowings);
     // info!("Borrowings {:#?}", borrowings);
-    // Borrowing::process(&mut borrowings);
+    borrowings.process()?;
     // borrowings.process()?;
     Ok(())
 }

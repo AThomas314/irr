@@ -1,3 +1,4 @@
+use crate::comps::compute_irr;
 use crate::consts::*;
 use crate::errors::BorrowingError;
 use log::debug;
@@ -48,14 +49,15 @@ impl Borrowings {
         let total_payments: Vec<f64> = extractf64(&payments_df, TOTAL_PAID)?;
         let date_payments: Vec<i32> = extract_i32(&payments_df, DATE_COL)?;
         let payment_amendment_dates: Vec<i32> = extract_i32(&payments_df, AMENDMENT_DATE_COL)?;
-        let disbursement_amendment_dates: Vec<i32> = extract_i32(&payments_df, AMENDMENT_DATE_COL)?;
+        let disbursement_amendment_dates: Vec<i32> =
+            extract_i32(&disbursements_df, AMENDMENT_DATE_COL)?;
         let date_disbursements: Vec<i32> = extract_i32(&disbursements_df, DATE_COL)?;
         let standalone_disbursements: Vec<f64> = extractf64(&disbursements_df, STANDALONE)?;
         let consol_disbursements: Vec<f64> = extractf64(&disbursements_df, CONSOL)?;
         let payments_ranges = create_ranges(&payments_df, ids.len() + 2)?;
         let disbursements_ranges = create_ranges(&disbursements_df, ids.len() + 2)?;
-        debug!(" disbursements_ranges {:#?}", disbursements_ranges);
-        debug!(" payments_ranges {:#?}", payments_ranges);
+        // debug!(" disbursements_ranges {:#?}", disbursements_ranges);
+        // debug!(" payments_ranges {:#?}", payments_ranges);
         Ok(Self {
             ids,
             locations,
@@ -76,7 +78,11 @@ impl Borrowings {
     pub fn process(self) -> Result<(), BorrowingError> {
         //Result<HashMap<String, DataFrame>, BorrowingError> {
         for i in 0..self.ids.len() {
+            //
+            //
             //Loan Level Data Begins
+            //
+            //
             let id = &self.ids[i];
             let location = &self.locations[i];
             let payments_ranges = &self.payments_ranges[i];
@@ -101,26 +107,54 @@ impl Borrowings {
                 &self.principal_payments[payments_ranges.start..payments_ranges.end];
             let interest_payments =
                 &self.interest_payments[payments_ranges.start..payments_ranges.end];
+            //
+            //
             // "Amendment" 1
-            let payments_slice = payments_amendment_splits[0];
-            let disbursements_slice = disbursements_amendment_splits[0];
-            let cur_
-            debug!(
-                "{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?}",
-                id,
-                location,
-                payments_ranges,
-                disbursements_ranges,
-                payments_amendment_dates,
-                disbursements_amendment_dates,
-                disbursements_amendment_splits,
-                payments_amendment_splits
+            //
+            //
+            let payments_slice = &payments_amendment_splits[0];
+            let disbursements_slice = &disbursements_amendment_splits[0];
+            let cur_total_payments = &total_payments[payments_slice.start..payments_slice.end];
+            let cur_total_standalone_disbursements =
+                &standalone_disbursements[disbursements_slice.start..disbursements_slice.end];
+            let cur_payment_dates = &date_payments[payments_slice.start..payments_slice.end];
+            let cur_disbursements_dates =
+                &date_disbursements[disbursements_slice.start..disbursements_slice.end];
+
+            let irr = compute_irr(
+                cur_payment_dates,
+                cur_total_payments,
+                cur_disbursements_dates,
+                cur_total_standalone_disbursements,
+                cur_disbursements_dates[0],
+                0.1,
+                0.1,
             );
+            debug!("{:#?}", irr.unwrap());
+            // debug!(
+            //     "{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?}",
+            //     id,
+            //     location,
+            //     payments_ranges,
+            //     disbursements_ranges,
+            //     payments_amendment_dates,
+            //     disbursements_amendment_dates,
+            //     disbursements_amendment_splits,
+            //     payments_amendment_splits
+            // );
         }
         Ok(())
     }
 }
-
+fn compute_arrays(
+    payment_dates: Vec<i32>,
+    payments: Vec<f64>,
+    disbursement_dates: Vec<i32>,
+    disbursements: Vec<f64>,
+    opening_balance: f64,
+    cutoff: Option<i32>,
+) {
+}
 fn extract_strs(df: &DataFrame, col: &str) -> Result<Vec<Arc<str>>, BorrowingError> {
     //extract the string columns of the dataframe as an Arc<str>
     Ok(df
