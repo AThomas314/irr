@@ -1,6 +1,7 @@
 //This module contains the logic to compute the irr
 use crate::errors::BorrowingError;
 use log::debug;
+use tokio::io::Interest;
 
 pub fn compute_irr(
     payment_dates: &[i32],
@@ -48,4 +49,30 @@ pub fn compute_irr(
         guess -= step * 365.25;
     }
     Ok(guess)
+}
+pub fn compute_arrays(
+    payment_dates: &[i32],
+    payments: &[f64],
+    disbursement_dates: &[i32],
+    disbursements: &[f64],
+    opening_balance: f64,
+    start_date: i32,
+    cutoff: i32,
+    irr: f64,
+) {
+    // println!("{:#?},{:#?},{:#?},{:#?},{:#?}",payment_dates,payments,)
+    debug!(
+        "{:#?},{:#?},{:#?},{:#?}",
+        opening_balance, start_date, cutoff, irr
+    );
+    let capacity = cutoff as usize - start_date as usize + 1 as usize;
+    let mut op_bal: Vec<f64> = Vec::with_capacity(capacity);
+    let mut cl_bal: Vec<f64> = Vec::with_capacity(capacity);
+    let mut interest: Vec<f64> = Vec::with_capacity(capacity);
+    let mut payments: Vec<f64> = Vec::with_capacity(capacity);
+    let mut disbursements: Vec<f64> = Vec::with_capacity(capacity);
+    payments.fill(0.0);
+    disbursements.fill(0.0);
+    op_bal[0] = 0.0;
+    cl_bal[capacity] = 0.0;
 }

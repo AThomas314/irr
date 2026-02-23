@@ -1,4 +1,4 @@
-use crate::comps::compute_irr;
+use crate::comps::{compute_arrays, compute_irr};
 use crate::consts::*;
 use crate::errors::BorrowingError;
 use log::debug;
@@ -120,7 +120,11 @@ impl Borrowings {
             let cur_payment_dates = &date_payments[payments_slice.start..payments_slice.end];
             let cur_disbursements_dates =
                 &date_disbursements[disbursements_slice.start..disbursements_slice.end];
-
+            //
+            //
+            // Use the data extracted for this amendment to compute the irr
+            //
+            //
             let irr = compute_irr(
                 cur_payment_dates,
                 cur_total_payments,
@@ -129,8 +133,36 @@ impl Borrowings {
                 cur_disbursements_dates[0],
                 0.1,
                 0.1,
-            );
-            debug!("{:#?}", irr.unwrap());
+            )?;
+            debug!("{:#?}", irr);
+            if let Some(next_amendment) = payments_amendment_splits.get(1) {
+                let arrs = compute_arrays(
+                    cur_payment_dates,
+                    cur_total_payments,
+                    cur_disbursements_dates,
+                    cur_total_standalone_disbursements,
+                    0.0,
+                    cur_disbursements_dates[0],
+                    payments_amendment_dates[next_amendment.start],
+                    irr,
+                );
+            } else {
+                let arrs = compute_arrays(
+                    cur_payment_dates,
+                    cur_total_payments,
+                    cur_disbursements_dates,
+                    cur_total_standalone_disbursements,
+                    0.0,
+                    cur_disbursements_dates[0],
+                    *cur_payment_dates.last().unwrap(),
+                    irr,
+                );
+            }
+            //
+            //
+            // Use the data extracted for this amendment with the irr to compute the balances for this period
+            //
+            //
             // debug!(
             //     "{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?},{:#?}",
             //     id,
@@ -145,15 +177,6 @@ impl Borrowings {
         }
         Ok(())
     }
-}
-fn compute_arrays(
-    payment_dates: Vec<i32>,
-    payments: Vec<f64>,
-    disbursement_dates: Vec<i32>,
-    disbursements: Vec<f64>,
-    opening_balance: f64,
-    cutoff: Option<i32>,
-) {
 }
 fn extract_strs(df: &DataFrame, col: &str) -> Result<Vec<Arc<str>>, BorrowingError> {
     //extract the string columns of the dataframe as an Arc<str>
