@@ -136,27 +136,29 @@ impl Borrowings {
             )?;
             debug!("{:#?}", irr);
             if let Some(next_amendment) = payments_amendment_splits.get(1) {
-                let arrs = compute_arrays(
-                    cur_payment_dates,
-                    cur_total_payments,
-                    cur_disbursements_dates,
-                    cur_total_standalone_disbursements,
-                    0.0,
-                    cur_disbursements_dates[0],
-                    payments_amendment_dates[next_amendment.start],
-                    irr,
-                );
+                let (op_bal, cl_bal, interest, payments_padded, disbursements_padded) =
+                    compute_arrays(
+                        cur_payment_dates,
+                        cur_total_payments,
+                        cur_disbursements_dates,
+                        cur_total_standalone_disbursements,
+                        0.0,
+                        cur_disbursements_dates[0],
+                        payments_amendment_dates[next_amendment.start],
+                        irr,
+                    );
             } else {
-                let arrs = compute_arrays(
-                    cur_payment_dates,
-                    cur_total_payments,
-                    cur_disbursements_dates,
-                    cur_total_standalone_disbursements,
-                    0.0,
-                    cur_disbursements_dates[0],
-                    *cur_payment_dates.last().unwrap(),
-                    irr,
-                );
+                let (op_bal, cl_bal, interest, payments_padded, disbursements_padded) =
+                    compute_arrays(
+                        cur_payment_dates,
+                        cur_total_payments,
+                        cur_disbursements_dates,
+                        cur_total_standalone_disbursements,
+                        0.0,
+                        cur_disbursements_dates[0],
+                        *cur_payment_dates.last().unwrap(),
+                        irr,
+                    );
             }
             //
             //
