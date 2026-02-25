@@ -73,7 +73,7 @@ pub fn read_disbursements(path: &str) -> Result<DataFrame, BorrowingError> {
     //     .unwrap();
     // debug!("{:#?}", df);
 
-    let df: LazyFrame = LazyCsvReader::new(PlPath::from_str(path))
+    let df: LazyFrame = LazyCsvReader::new(PlRefPath::from(path))
         .with_schema(Some(Arc::from(schema)))
         .finish()?
         .with_columns(expressions)
@@ -145,7 +145,7 @@ pub fn read_payments(path: &str) -> Result<DataFrame, BorrowingError> {
     //             .alias(c),
     //     );
     // }
-    let df: LazyFrame = LazyCsvReader::new(PlPath::from_str(path))
+    let df: LazyFrame = LazyCsvReader::new(PlRefPath::from(path))
         .with_schema(Some(Arc::from(schema)))
         .finish()?
         .with_columns(expressions)

@@ -41,8 +41,8 @@ pub fn compute_irr(
             .iter()
             .zip(disbursements)
             .map(|(&date, &d)| {
-                let t = date - ref_date;
-                let discount = inv_ddf.powi(t - 1); // using t-1 so that interest is applied on the installment from the day on which it is disbursed. use t for only the day after
+                let t = date - ref_date - 1;
+                let discount = inv_ddf.powi(t);
                 let npv = d * -1.0 * discount;
                 let grad = -t as f64 * d * -1.0 * discount * inv_ddf;
                 debug!("{:#?}; {:#?}; {:#?}", t, d, npv);
@@ -53,7 +53,10 @@ pub fn compute_irr(
         let grad = grad_d + grad_p;
         let step = npv / grad;
         if npv.abs().le(&tol) {
-            debug!("TERMINAL NPV AT {:#?} ITERATIONS {:#?}", i, npv);
+            debug!(
+                "TERMINAL NPV AT {:#?} ITERATIONS {:#?} with irr {:#?} ",
+                i, npv, guess
+            );
             return Ok(guess);
         }
         if step.abs() < f64::EPSILON {
@@ -78,26 +81,25 @@ pub fn compute_arrays(
     start_date: i32,
     cutoff: i32,
     irr: f64,
-) -> (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
+    op_bal: &mut [f64],
+    cl_bal: &mut [f64],
+    interest: &mut [f64],
+    total_paid: &mut [f64],
+    total_disbursements: &mut [f64],
+    irrs: &mut [f64],
+    start: usize,
+) {
     debug!(
-        "{:#?},{:#?},{:#?},{:#?}",
+        "opening_balance {:#?},start_date {:#?} , cutoff {:#?} , irr {:#?}",
         opening_balance, start_date, cutoff, irr
     );
     let capacity = cutoff as usize - start_date as usize + 1 as usize;
-    let mut op_bal: Vec<f64> = Vec::with_capacity(capacity);
-    let mut cl_bal: Vec<f64> = Vec::with_capacity(capacity);
-    let mut interest: Vec<f64> = Vec::with_capacity(capacity);
-    let mut payments_padded: Vec<f64> = vec![0.0; capacity];
-    let mut disbursements_padded: Vec<f64> = vec![0.0; capacity];
-
-    op_bal.push(0.0);
-
     for (&date, &amt) in payment_dates.iter().zip(payments) {
         let idx = (date - start_date) as usize;
         if idx >= capacity {
             break;
         }
-        payments_padded[idx] = amt;
+        total_paid[start + idx] = amt;
     }
 
     for (&date, &amt) in disbursement_dates.iter().zip(disbursements) {
@@ -105,15 +107,18 @@ pub fn compute_arrays(
         if idx >= capacity {
             break;
         }
-        disbursements_padded[idx] = amt;
+        total_disbursements[start + idx] = amt;
     }
+    irrs[start..start + capacity].fill(irr);
     let daily_irr = irr / 365.25;
     for i in 0..capacity {
-        let d_amt = disbursements_padded[i];
-        let p_amt = payments_padded[i];
+        let d_amt = total_disbursements[start + i];
+        let p_amt = total_paid[start + i];
         let int_amt = (opening_balance + d_amt) * daily_irr;
         let closing = opening_balance + int_amt + d_amt - p_amt;
-
+        op_bal[start + i] = opening_balance;
+        cl_bal[start + i] = closing;
+        interest[start + i] = int_amt;
         debug!("i=={:#?}", i);
         debug!("d_amt {:#?}", d_amt);
         debug!("p_amt {:#?}", p_amt);
@@ -123,20 +128,13 @@ pub fn compute_arrays(
         debug!("closing {:#?}", closing);
         debug!("\n");
 
-        op_bal.push(opening_balance);
-        interest.push(int_amt);
-        cl_bal.push(closing);
+        // op_bal.push(opening_balance);
+        // interest.push(int_amt);
+        // cl_bal.push(closing);
         opening_balance = closing;
     }
     // println!(
     //     "{:#?},{:#?},{:#?},{:#?},{:#?}",
     //     op_bal, cl_bal, interest, payments_padded, disbursements_padded
     // );
-    (
-        op_bal,
-        cl_bal,
-        interest,
-        payments_padded,
-        disbursements_padded,
-    )
 }

@@ -6,10 +6,17 @@ mod funcs;
 // use comps::compute_irr;
 use funcs::*;
 use log::debug;
-
 use tokio;
 mod structs;
 use structs::*;
+
+#[cfg(target_os = "windows")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[cfg(target_os = "linux")]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), BorrowingError> {
