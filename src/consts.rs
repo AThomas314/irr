@@ -1,3 +1,4 @@
+//Input DataFrames
 pub const LOAN_ID: &str = "Loan ID";
 pub const LOCATION: &str = "Location";
 pub const DATE_COL: &str = "Date";
@@ -13,3 +14,21 @@ pub const CAP_DATE_COL: &str = "Capitalization Date";
 pub const TOTAL_PAID: &str = "Total Paid";
 pub const CONSOL: &str = "Consol";
 pub const STANDALONE: &str = "Standalone";
+//Output DataFrames
+pub const CL_BAL: &str = "Closing Balance";
+pub const PAYMENTS: &str = "Payments";
+pub const DISBURSEMENTS: &str = "Disbursements";
+pub const IRR: &str = "IRR";
+pub const INT_RATE: &str = "Interest Rate";
+pub const PRINC_PAID: &str = "Principal Paid";
+pub const INT_PAID: &str = "Interest Paid";
+pub const EIR_INT: &str = "EIR Interest";
+pub const OP_BAL: &str = "Opening Balance";
+pub const ID: &str = "id";
+pub const INT_EXP: &str = "Interest Expensed";
+pub const INT_CAP: &str = "Interest Capitalized";
+pub const MONTH: &str = "Month";
+pub const GROUP: &str = "Group";
+pub const FROM: &str = "From";
+pub const TO: &str = "To";
+pub const DAYS: &str = "Days";

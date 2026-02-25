@@ -11,17 +11,17 @@ pub fn compute_irr(
     mut guess: f64,
     tol: f64,
 ) -> Result<f64, BorrowingError> {
-    debug!("payments dates first {:#?}", payment_dates.first());
-    debug!("payments first {:#?}", payments.first());
-    debug!(
-        "disbursements dates first {:#?}",
-        disbursements_dates.first()
-    );
-    debug!("disbursements first {:#?}", disbursements.first());
-    debug!("payments dates last {:#?}", payment_dates.last());
-    debug!("payments last {:#?}", payments.last());
-    debug!("disbursements dates last {:#?}", disbursements_dates.last());
-    debug!("disbursements last {:#?}", disbursements.last());
+    // debug!("payments dates first {:#?}", payment_dates.first());
+    // debug!("payments first {:#?}", payments.first());
+    // debug!(
+    //     "disbursements dates first {:#?}",
+    //     disbursements_dates.first()
+    // );
+    // debug!("disbursements first {:#?}", disbursements.first());
+    // debug!("payments dates last {:#?}", payment_dates.last());
+    // debug!("payments last {:#?}", payments.last());
+    // debug!("disbursements dates last {:#?}", disbursements_dates.last());
+    // debug!("disbursements last {:#?}", disbursements.last());
     for i in 0..=100 {
         let daily_rate = guess / 365.25;
         let inv_ddf = 1.0 / (1.0 + daily_rate);
@@ -33,7 +33,7 @@ pub fn compute_irr(
                 let discount = inv_ddf.powi(t);
                 let npv = p * discount;
                 let grad = -t as f64 * p * discount * inv_ddf;
-                debug!("{:#?}; {:#?}; {:#?}", t, p, npv);
+                // debug!("{:#?}; {:#?}; {:#?}", t, p, npv);
                 (npv, grad)
             })
             .fold((0.0, 0.0), |acc, x| (acc.0 + x.0, acc.1 + x.1));
@@ -45,7 +45,7 @@ pub fn compute_irr(
                 let discount = inv_ddf.powi(t);
                 let npv = d * -1.0 * discount;
                 let grad = -t as f64 * d * -1.0 * discount * inv_ddf;
-                debug!("{:#?}; {:#?}; {:#?}", t, d, npv);
+                // debug!("{:#?}; {:#?}; {:#?}", t, d, npv);
                 (npv, grad)
             })
             .fold((0.0, 0.0), |acc, x| (acc.0 + x.0, acc.1 + x.1));
@@ -75,6 +75,9 @@ pub fn compute_irr(
 pub fn compute_arrays(
     payment_dates: &[i32],
     payments: &[f64],
+    interest_payments: &[f64],
+    principal_payments: &[f64],
+    interest_rates: &[f64],
     disbursement_dates: &[i32],
     disbursements: &[f64],
     mut opening_balance: f64,
@@ -87,6 +90,9 @@ pub fn compute_arrays(
     total_paid: &mut [f64],
     total_disbursements: &mut [f64],
     irrs: &mut [f64],
+    interest_payments_padded: &mut [f64],
+    principal_payments_padded: &mut [f64],
+    interest_rates_padded: &mut [f64],
     start: usize,
 ) {
     debug!(
@@ -94,12 +100,21 @@ pub fn compute_arrays(
         opening_balance, start_date, cutoff, irr
     );
     let capacity = cutoff as usize - start_date as usize + 1 as usize;
-    for (&date, &amt) in payment_dates.iter().zip(payments) {
+    for ((((&date, &amt), &int), &pri), &rates) in payment_dates
+        .iter()
+        .zip(payments)
+        .zip(interest_payments)
+        .zip(principal_payments)
+        .zip(interest_rates)
+    {
         let idx = (date - start_date) as usize;
         if idx >= capacity {
             break;
         }
         total_paid[start + idx] = amt;
+        interest_payments_padded[start + idx] = int;
+        principal_payments_padded[start + idx] = pri;
+        interest_rates_padded[start + idx] = rates;
     }
 
     for (&date, &amt) in disbursement_dates.iter().zip(disbursements) {
@@ -119,14 +134,14 @@ pub fn compute_arrays(
         op_bal[start + i] = opening_balance;
         cl_bal[start + i] = closing;
         interest[start + i] = int_amt;
-        debug!("i=={:#?}", i);
-        debug!("d_amt {:#?}", d_amt);
-        debug!("p_amt {:#?}", p_amt);
-        debug!("irr {:#?}", daily_irr);
-        debug!("opening_balance {:#?}", opening_balance);
-        debug!("int_amt {:#?}", int_amt);
-        debug!("closing {:#?}", closing);
-        debug!("\n");
+        // debug!("i=={:#?}", i);
+        // debug!("d_amt {:#?}", d_amt);
+        // debug!("p_amt {:#?}", p_amt);
+        // debug!("irr {:#?}", daily_irr);
+        // debug!("opening_balance {:#?}", opening_balance);
+        // debug!("int_amt {:#?}", int_amt);
+        // debug!("closing {:#?}", closing);
+        // debug!("\n");
 
         // op_bal.push(opening_balance);
         // interest.push(int_amt);
