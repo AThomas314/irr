@@ -33,3 +33,4 @@ pub const FROM: &str = "From";
 pub const TO: &str = "To";
 pub const DAYS: &str = "Days";
 pub const AMORTIZATION: &str = "Amortization";
+pub const INV_365_25: f64 = 1.0 / 365.25;

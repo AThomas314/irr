@@ -1,0 +1,21 @@
+[env]
+CC = "clang-cl"
+CFLAGS = "-flto=full -march=native"
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = [
+    "-C", "target-cpu=native",
+    # "-C", "linker-plugin-lto",
+    "-C", "force-frame-pointers=yes",
+    "-C", "link-arg=/DEBUG",
+]
+
+[profile.profile]
+inherits = "release"
+debug = 2
+split-debuginfo = "off"
+strip = "none"
+lto = "fat"
+codegen-units = 1
+panic = "abort"

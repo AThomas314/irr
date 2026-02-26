@@ -28,8 +28,8 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 opt-level = 3
-debug = false
-strip = true
+debug = 1
+strip = "none"
 
 [profile.profile]
 inherits = "release"
@@ -37,5 +37,6 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 opt-level = 3
-debug = true
+debug = 2
 strip = false
+split-debuginfo = "packed" # This forces the creation of the .pdb file next to the .exe

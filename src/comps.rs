@@ -1,7 +1,7 @@
 //This module contains the logic to compute the irr
+use crate::consts::INV_365_25;
 use crate::errors::BorrowingError;
 use log::debug;
-
 pub fn compute_irr(
     payment_dates: &[i32],
     payments: &[f64],
@@ -13,7 +13,7 @@ pub fn compute_irr(
     mut guess: f64,
     tol: f64,
 ) -> Result<f64, BorrowingError> {
-    debug!(" {:#?} , {:#?} ", op_bal, op_bal_date);
+    // debug!(" {:#?} , {:#?} ", op_bal, op_bal_date);
     // debug!("payments dates first {:#?}", payment_dates.first());
     // debug!("payments first {:#?}", payments.first());
     // debug!(
@@ -26,7 +26,7 @@ pub fn compute_irr(
     // debug!("disbursements dates last {:#?}", disbursements_dates.last());
     // debug!("disbursements last {:#?}", disbursements.last());
     for i in 0..=100 {
-        let daily_rate = guess / 365.25;
+        let daily_rate = guess * INV_365_25;
         let inv_ddf = 1.0 / (1.0 + daily_rate);
         let (npv_p, grad_p): (f64, f64) = payment_dates
             .iter()
@@ -34,8 +34,9 @@ pub fn compute_irr(
             .map(|(&date, &p)| {
                 let t = date - ref_date;
                 let discount = inv_ddf.powi(t);
+                // let discount = pow(inv_ddf, t as f64);
                 let npv = p * discount;
-                let grad = -t as f64 * p * discount * inv_ddf;
+                let grad = -t as f64 * npv * inv_ddf;
                 // debug!("{:#?}; {:#?}; {:#?}", t, p, npv);
                 (npv, grad)
             })
@@ -46,8 +47,9 @@ pub fn compute_irr(
             .map(|(&date, &d)| {
                 let t = date - ref_date - 1;
                 let discount = inv_ddf.powi(t);
+                // let discount = pow(inv_ddf, t as f64);
                 let npv = d * -1.0 * discount;
-                let grad = -t as f64 * d * -1.0 * discount * inv_ddf;
+                let grad = -t as f64 * npv * inv_ddf;
                 // debug!("{:#?}; {:#?}; {:#?}", t, d, npv);
                 (npv, grad)
             })
@@ -55,18 +57,19 @@ pub fn compute_irr(
         let (disc_ob, grad_ob) = {
             let t = op_bal_date - ref_date - 1;
             let discount = inv_ddf.powi(t);
+            // let discount = pow(inv_ddf, t as f64);
             let disc_ob = op_bal * -1.0 * discount;
-            let grad_ob = -t as f64 * op_bal * -1.0 * discount * inv_ddf;
+            let grad_ob = -t as f64 * disc_ob * inv_ddf;
             (disc_ob, grad_ob)
         };
         let npv = npv_d + npv_p + disc_ob;
         let grad = grad_d + grad_p + grad_ob;
         let step = npv / grad;
         if npv.abs().le(&tol) {
-            debug!(
-                "TERMINAL NPV AT {:#?} ITERATIONS {:#?} with irr {:#?} ",
-                i, npv, guess
-            );
+            // debug!(
+            //     "TERMINAL NPV AT {:#?} ITERATIONS {:#?} with irr {:#?} ",
+            //     i, npv, guess
+            // );
             return Ok(guess);
         }
         if step.abs() < f64::EPSILON {
@@ -105,10 +108,10 @@ pub fn compute_arrays(
     interest_rates_padded: &mut [f64],
     start: usize,
 ) {
-    debug!(
-        "opening_balance {:#?},start_date {:#?} , cutoff {:#?} , irr {:#?}",
-        opening_balance, start_date, cutoff, irr
-    );
+    // debug!(
+    //     "opening_balance {:#?},start_date {:#?} , cutoff {:#?} , irr {:#?}",
+    //     opening_balance, start_date, cutoff, irr
+    // );
     let capacity = cutoff as usize - start_date as usize + 1 as usize;
     for ((((&date, &amt), &int), &pri), &rates) in payment_dates // ONLY WORKS BECAUSE THE SLICES HAVE THE SAME LENGTH
         .iter()
@@ -135,12 +138,13 @@ pub fn compute_arrays(
         total_disbursements[start + idx] = amt;
     }
     irrs[start..start + capacity].fill(irr);
-    let daily_irr = irr / 365.25;
+    let daily_irr = irr * INV_365_25;
     for i in 0..capacity {
         let d_amt = total_disbursements[start + i];
         let p_amt = total_paid[start + i];
-        let int_amt = (opening_balance + d_amt) * daily_irr;
-        let closing = opening_balance + int_amt + d_amt - p_amt;
+        let base = opening_balance + d_amt;
+        let int_amt = base * daily_irr;
+        let closing = base + int_amt - p_amt;
         op_bal[start + i] = opening_balance;
         cl_bal[start + i] = closing;
         interest[start + i] = int_amt;

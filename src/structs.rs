@@ -7,6 +7,7 @@ use polars_arrow::array::{BinaryViewArrayGeneric, MutablePrimitiveArray, Primiti
 use polars_arrow::pushable::Pushable;
 use std::fs::File;
 use std::ops::{Div, Mul, Range};
+use std::time::Instant;
 #[derive(Debug)]
 pub struct Borrowings {
     //class definitionc
@@ -85,7 +86,7 @@ impl Borrowings {
         })
     }
 
-    pub fn process(self) -> Result<(), BorrowingError> {
+    pub fn process(&self) -> Result<Instant, BorrowingError> {
         //Result<HashMap<String, DataFrame>, BorrowingError> {
         for i in 0..self.ids.len() {
             //
@@ -151,7 +152,7 @@ impl Borrowings {
                 0.1,
                 0.001,
             )?;
-            debug!("irr {:#?}", irr);
+            // debug!("irr {:#?}", irr);
             let capacity = (date_payments.last().unwrap() - date_disbursements[0] + 1) as usize;
 
             let mut total_op_bal: MutablePrimitiveArray<f64> =
@@ -251,15 +252,16 @@ impl Borrowings {
             if payments_amendment_splits.len() > 1 {
                 for i in 1..payments_amendment_splits.len() {
                     let payments_slice = &payments_amendment_splits[i];
-                    debug!("payments_slice {:#?}", payments_slice);
+                    // debug!("payments_slice {:#?}", payments_slice);
                     let amendment_date = payments_amendment_dates[payments_slice.start];
                     let disbursements_slice: Option<Range<usize>> = disbursements_amendment_splits
                         .iter()
                         .find(|split| disbursements_amendment_dates[split.start] == amendment_date)
                         .cloned();
-                    debug!("disbursements_slice {:#?}", disbursements_slice);
+                    // debug!("disbursements_slice {:#?}", disbursements_slice);
                     let cur_total_payments =
                         &total_payments[payments_slice.start..payments_slice.end];
+                    // debug!("payments_slice {:#?}", payments_slice);
                     let (cur_total_standalone_disbursements, cur_disbursements_dates) =
                         if let Some(slice) = disbursements_slice {
                             (
@@ -287,6 +289,57 @@ impl Borrowings {
                         0.1,
                         0.001,
                     )?;
+                    if let Some(next_amendment) = payments_amendment_splits.get(i + 1) {
+                        // debug!("next_amendment {:#?}", next_amendment);
+                        compute_arrays(
+                            cur_payment_dates,
+                            cur_total_payments,
+                            interest_payments,
+                            principal_payments,
+                            interest_rates,
+                            cur_disbursements_dates,
+                            cur_total_standalone_disbursements,
+                            opening_balance,
+                            cur_disbursements_dates[0],
+                            payments_amendment_dates[next_amendment.start], //cutoff
+                            irr,
+                            &mut total_op_bal.values_mut_slice(),
+                            &mut total_cl_bal.values_mut_slice(),
+                            &mut total_interest.values_mut_slice(),
+                            &mut total_payments_padded.values_mut_slice(),
+                            &mut total_disbursements_padded.values_mut_slice(),
+                            &mut irrs.values_mut_slice(),
+                            &mut interest_payments_padded.values_mut_slice(),
+                            &mut principal_payments_padded.values_mut_slice(),
+                            &mut interest_rates_padded.values_mut_slice(),
+                            offset,
+                        );
+                    } else {
+                        // debug!("next_amendment :NONE",);
+                        compute_arrays(
+                            cur_payment_dates,
+                            cur_total_payments,
+                            interest_payments,
+                            principal_payments,
+                            interest_rates,
+                            cur_disbursements_dates,
+                            cur_total_standalone_disbursements,
+                            opening_balance,
+                            cur_disbursements_dates[0],
+                            *cur_payment_dates.last().unwrap(), //cutoff
+                            irr,
+                            &mut total_op_bal.values_mut_slice(),
+                            &mut total_cl_bal.values_mut_slice(),
+                            &mut total_interest.values_mut_slice(),
+                            &mut total_payments_padded.values_mut_slice(),
+                            &mut total_disbursements_padded.values_mut_slice(),
+                            &mut irrs.values_mut_slice(),
+                            &mut interest_payments_padded.values_mut_slice(),
+                            &mut principal_payments_padded.values_mut_slice(),
+                            &mut interest_rates_padded.values_mut_slice(),
+                            offset,
+                        );
+                    }
                 }
             };
             let mut df = build_as_dataframe(
@@ -303,12 +356,13 @@ impl Borrowings {
                 interest_rates_padded,
                 irrs,
                 *capitalization_date,
-            )
-            .unwrap();
-            let file = File::create("output.csv").expect("could not create file");
-            let _ = CsvWriter::new(file).finish(&mut df);
+            );
+            if let Ok(mut df) = df {
+                let file = File::create("output.csv").expect("could not create file");
+                let _ = CsvWriter::new(file).finish(&mut df);
+            }
         }
-        Ok(())
+        Ok(Instant::now())
     }
 }
 fn build_as_dataframe(
@@ -326,17 +380,17 @@ fn build_as_dataframe(
     irrs: MutablePrimitiveArray<f64>,
     capitalization_date: i32,
 ) -> Result<DataFrame, BorrowingError> {
-    let id = Series::from_iter((0..op_bals.len()).into_iter().map(|_| id)).with_name(ID.into());
-    let capitalization_date =
-        Series::from_iter((0..op_bals.len()).into_iter().map(|_| capitalization_date))
-            .with_name(CAP_DATE_COL.into());
-    let location = Series::from_iter((0..op_bals.len()).into_iter().map(|_| location))
-        .with_name(LOCATION.into());
+    // let id = Series::from_iter((0..op_bals.len()).into_iter().map(|_| id)).with_name(ID.into());
+    // let capitalization_date =
+    //     Series::from_iter((0..op_bals.len()).into_iter().map(|_| capitalization_date))
+    //         .with_name(CAP_DATE_COL.into());
+    // let location = Series::from_iter((0..op_bals.len()).into_iter().map(|_| location))
+    //     .with_name(LOCATION.into());
     let mut df = DataFrame::new(
         op_bals.len(),
         vec![
-            id.into_column(),
-            location.into_column(),
+            // id.into_column(),
+            // location.into_column(),
             dates.into_column(),
             Series::from_array(OP_BAL.into(), PrimitiveArray::from(op_bals)).into_column(),
             Series::from_array(EIR_INT.into(), PrimitiveArray::from(effective_interest))
@@ -351,9 +405,10 @@ fn build_as_dataframe(
                 .into_column(),
             Series::from_array(INT_RATE.into(), PrimitiveArray::from(interest_rates)).into_column(),
             Series::from_array(IRR.into(), PrimitiveArray::from(irrs)).into_column(),
-            capitalization_date.into_column(),
+            // capitalization_date.into_column(),
         ],
     )?;
+
     let int_cap = when(col(DATE_COL).lt(col(CAP_DATE_COL)))
         .then(col(EIR_INT))
         .otherwise(lit(0.0))
@@ -398,6 +453,11 @@ fn build_as_dataframe(
     let amort = daily_amort.mul(col(DAYS)).alias(AMORTIZATION);
     df = df
         .lazy()
+        .with_columns(vec![
+            lit(id).alias(PlSmallStr::from_str(ID)),
+            lit(location).alias(PlSmallStr::from_str(LOCATION)),
+            lit(capitalization_date).alias(PlSmallStr::from_str(CAP_DATE_COL)),
+        ])
         .with_columns(vec![
             month.alias(MONTH),
             int_cap,
