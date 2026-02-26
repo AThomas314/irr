@@ -119,7 +119,7 @@ impl Borrowings {
                 &self.principal_payments.values()[payments_ranges.start..payments_ranges.end];
             let interest_rates =
                 &self.interest_rates.values()[payments_ranges.start..payments_ranges.end];
-            println!("interest_rates {:#?}", interest_rates);
+
             let interest_payments =
                 &self.interest_payments.values()[payments_ranges.start..payments_ranges.end];
             //
@@ -145,13 +145,15 @@ impl Borrowings {
                 cur_total_payments,
                 cur_disbursements_dates,
                 cur_total_standalone_disbursements,
+                0.0,
+                0,
                 cur_disbursements_dates[0],
                 0.1,
-                0.00001,
+                0.001,
             )?;
             debug!("irr {:#?}", irr);
             let capacity = (date_payments.last().unwrap() - date_disbursements[0] + 1) as usize;
-            println!("capacity {:#?}", capacity);
+
             let mut total_op_bal: MutablePrimitiveArray<f64> =
                 MutablePrimitiveArray::<f64>::with_capacity(capacity);
             let mut total_cl_bal: MutablePrimitiveArray<f64> =
@@ -240,6 +242,53 @@ impl Borrowings {
             //Amendment 1 DONE!
             //
             //
+
+            //
+            //
+            //Subsequent Amendments Begin!
+            //
+            //
+            if payments_amendment_splits.len() > 1 {
+                for i in 1..payments_amendment_splits.len() {
+                    let payments_slice = &payments_amendment_splits[i];
+                    debug!("payments_slice {:#?}", payments_slice);
+                    let amendment_date = payments_amendment_dates[payments_slice.start];
+                    let disbursements_slice: Option<Range<usize>> = disbursements_amendment_splits
+                        .iter()
+                        .find(|split| disbursements_amendment_dates[split.start] == amendment_date)
+                        .cloned();
+                    debug!("disbursements_slice {:#?}", disbursements_slice);
+                    let cur_total_payments =
+                        &total_payments[payments_slice.start..payments_slice.end];
+                    let (cur_total_standalone_disbursements, cur_disbursements_dates) =
+                        if let Some(slice) = disbursements_slice {
+                            (
+                                &standalone_disbursements[slice.start..slice.end],
+                                &date_disbursements[slice.start..slice.end],
+                            )
+                        } else {
+                            (&[0.0][..], &[amendment_date][..])
+                        };
+                    let cur_payment_dates =
+                        &date_payments[payments_slice.start..payments_slice.end];
+                    let first_disb_date = date_disbursements[0];
+                    let offset: usize = (amendment_date - first_disb_date) as usize;
+                    let opening_balance = total_cl_bal.values()[offset];
+                    let opening_balance_date = dates.slice(offset as i64, 1).first();
+                    let opening_balance_date: i32 = opening_balance_date.value().try_extract()?;
+                    let irr = compute_irr(
+                        cur_payment_dates,
+                        cur_total_payments,
+                        cur_disbursements_dates,
+                        cur_total_standalone_disbursements,
+                        opening_balance,
+                        opening_balance_date,
+                        first_disb_date,
+                        0.1,
+                        0.001,
+                    )?;
+                }
+            };
             let mut df = build_as_dataframe(
                 id,
                 location,
@@ -347,7 +396,7 @@ fn build_as_dataframe(
     let months_days = col(DAYS).sum().over([col(MONTH)]);
     let daily_amort = monthly_amort.div(months_days);
     let amort = daily_amort.mul(col(DAYS)).alias(AMORTIZATION);
-    let df = df
+    df = df
         .lazy()
         .with_columns(vec![
             month.alias(MONTH),
@@ -378,7 +427,7 @@ fn build_as_dataframe(
         ])
         .collect()?;
 
-    println!("{:#?}", df);
+    // println!("{:#?}", df);
     Ok(df)
 }
 fn extract_strs(df: &DataFrame, col: &str) -> Result<BinaryViewArrayGeneric<str>, BorrowingError> {

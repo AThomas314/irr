@@ -7,10 +7,13 @@ pub fn compute_irr(
     payments: &[f64],
     disbursements_dates: &[i32],
     disbursements: &[f64],
+    op_bal: f64,
+    op_bal_date: i32,
     ref_date: i32,
     mut guess: f64,
     tol: f64,
 ) -> Result<f64, BorrowingError> {
+    debug!(" {:#?} , {:#?} ", op_bal, op_bal_date);
     // debug!("payments dates first {:#?}", payment_dates.first());
     // debug!("payments first {:#?}", payments.first());
     // debug!(
@@ -49,8 +52,15 @@ pub fn compute_irr(
                 (npv, grad)
             })
             .fold((0.0, 0.0), |acc, x| (acc.0 + x.0, acc.1 + x.1));
-        let npv = npv_d + npv_p;
-        let grad = grad_d + grad_p;
+        let (disc_ob, grad_ob) = {
+            let t = op_bal_date - ref_date - 1;
+            let discount = inv_ddf.powi(t);
+            let disc_ob = op_bal * -1.0 * discount;
+            let grad_ob = -t as f64 * op_bal * -1.0 * discount * inv_ddf;
+            (disc_ob, grad_ob)
+        };
+        let npv = npv_d + npv_p + disc_ob;
+        let grad = grad_d + grad_p + grad_ob;
         let step = npv / grad;
         if npv.abs().le(&tol) {
             debug!(
@@ -61,8 +71,8 @@ pub fn compute_irr(
         }
         if step.abs() < f64::EPSILON {
             debug!(
-                "TERMINAL NPV {:#?} . GRADIENT DISAPPEARED at {:#?} iterations ",
-                npv, i
+                "TERMINAL NPV {:#?} . GRADIENT DISAPPEARED at {:#?} iterations with rate{:#?}",
+                npv, i, guess
             );
             return Ok(guess);
         }
@@ -100,7 +110,7 @@ pub fn compute_arrays(
         opening_balance, start_date, cutoff, irr
     );
     let capacity = cutoff as usize - start_date as usize + 1 as usize;
-    for ((((&date, &amt), &int), &pri), &rates) in payment_dates
+    for ((((&date, &amt), &int), &pri), &rates) in payment_dates // ONLY WORKS BECAUSE THE SLICES HAVE THE SAME LENGTH
         .iter()
         .zip(payments)
         .zip(interest_payments)
