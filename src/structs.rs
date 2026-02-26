@@ -6,23 +6,23 @@ use polars::prelude::*;
 use polars_arrow::array::{BinaryViewArrayGeneric, MutablePrimitiveArray, PrimitiveArray};
 use polars_arrow::pushable::Pushable;
 use std::fs::File;
-use std::ops::Range;
+use std::ops::{Div, Mul, Range};
 #[derive(Debug)]
 pub struct Borrowings {
     //class definitionc
     ids: BinaryViewArrayGeneric<str>,             // len = num loans
     locations: BinaryViewArrayGeneric<str>,       // len = num loans
-    payment_amendment_dates: PrimitiveArray<i32>, //len = lenghth of payments file
-    disbursement_amendment_dates: PrimitiveArray<i32>, //len = lenghth of disbursements file
+    payment_amendment_dates: PrimitiveArray<i32>, //len = length of payments file
+    disbursement_amendment_dates: PrimitiveArray<i32>, //len = length of disbursements file
     capitalization_dates: PrimitiveArray<i32>,    //len = num loans
-    interest_payments: PrimitiveArray<f64>,       //len = lenghth of payments file
-    principal_payments: PrimitiveArray<f64>,      //len = lenghth of payments file
-    total_payments: PrimitiveArray<f64>,          //len = lenghth of payments file
-    interest_rates: PrimitiveArray<f64>,          //len = lenghth of payments file
-    date_payments: PrimitiveArray<i32>,           //len = lenghth of payments file
-    date_disbursements: PrimitiveArray<i32>,      //len = lenghth of disbursements file
-    standalone_disbursements: PrimitiveArray<f64>, //len = lenghth of disbursements file
-    consol_disbursements: PrimitiveArray<f64>,    //len = lenghth of disbursements file
+    interest_payments: PrimitiveArray<f64>,       //len = length of payments file
+    principal_payments: PrimitiveArray<f64>,      //len = length of payments file
+    total_payments: PrimitiveArray<f64>,          //len = length of payments file
+    interest_rates: PrimitiveArray<f64>,          //len = length of payments file
+    date_payments: PrimitiveArray<i32>,           //len = length of payments file
+    date_disbursements: PrimitiveArray<i32>,      //len = length of disbursements file
+    standalone_disbursements: PrimitiveArray<f64>, //len = length of disbursements file
+    consol_disbursements: PrimitiveArray<f64>,    //len = length of disbursements file
     payments_ranges: Vec<Range<usize>>,           // len = num loans
     disbursements_ranges: Vec<Range<usize>>,      // len = num loans
 }
@@ -257,7 +257,7 @@ impl Borrowings {
             )
             .unwrap();
             let file = File::create("output.csv").expect("could not create file");
-            let writer = CsvWriter::new(file).finish(&mut df);
+            let _ = CsvWriter::new(file).finish(&mut df);
         }
         Ok(())
     }
@@ -342,7 +342,12 @@ fn build_as_dataframe(
     aggs.append(&mut first_aggs);
     aggs.append(&mut count_aggs);
     aggs.append(&mut sum_aggs);
-    df = df
+    let amort = col(EIR_INT) - col(INT_PAID);
+    let monthly_amort = amort.sum().over([col(MONTH)]);
+    let months_days = col(DAYS).sum().over([col(MONTH)]);
+    let daily_amort = monthly_amort.div(months_days);
+    let amort = daily_amort.mul(col(DAYS)).alias(AMORTIZATION);
+    let df = df
         .lazy()
         .with_columns(vec![
             month.alias(MONTH),
@@ -359,15 +364,20 @@ fn build_as_dataframe(
                 .or(col(IRR).neq(irr_shifted))
                 .cast(DataType::Int16)
                 .cum_sum(false)
-                .alias(GROUP), // Split at the month, disbursement, or payment level, whichever is earliest
+                .alias(GROUP), // Split at each month end, disbursement, payment, or amendment date, whichever is earliest
         )
         .group_by_stable([col(GROUP)])
         .agg(aggs)
         .with_columns([
             col(FROM).cast(DataType::Date).dt().strftime("%d-%b-%Y"),
             col(TO).cast(DataType::Date).dt().strftime("%d-%b-%Y"),
+            when(col(RATE_COL).eq(lit(0.0)))
+                .then(col(RATE_COL).shift(lit(-1)))
+                .otherwise(col(RATE_COL)),
+            amort,
         ])
         .collect()?;
+
     println!("{:#?}", df);
     Ok(df)
 }

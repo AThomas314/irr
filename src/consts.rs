@@ -32,3 +32,4 @@ pub const GROUP: &str = "Group";
 pub const FROM: &str = "From";
 pub const TO: &str = "To";
 pub const DAYS: &str = "Days";
+pub const AMORTIZATION: &str = "Amortization";
