@@ -61,8 +61,8 @@ pub fn compute_irr(
         }
         if step.abs() < f64::EPSILON {
             warn!(
-                "TERMINAL NPV {:#?} . GRADIENT DISAPPEARED at {:#?} iterations with rate{:#?}",
-                npv, i, guess
+                "TERMINAL NPV {:#?} whereas tolerance is {:#?}. GRADIENT DISAPPEARED at {:#?} iterations with rate{:#?},",
+                npv, tol, i, guess
             );
             return Ok(guess);
         }
