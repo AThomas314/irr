@@ -8,7 +8,6 @@ use funcs::*;
 use log::debug;
 use tokio;
 mod structs;
-use std::time::Instant;
 use structs::*;
 
 #[cfg(target_os = "windows")]
@@ -28,19 +27,6 @@ async fn main() -> Result<(), BorrowingError> {
         tokio::task::spawn_blocking(move || read_disbursements(r"disbursements 1116 3.csv"))
     ); //Read the files in parallel
     let borrowings = Borrowings::new(payments??, disbursements??)?; //Create the borrowings struct
-    // println!("{:#?}", borrowings);
-    // debug!("{:#?}", borrowings);
-    // info!("Borrowings {:#?}", borrowings);
-    let start = Instant::now();
-    borrowings.process()?;
-    let duration = start.elapsed();
-    println!("Took time of {:#?}", duration);
-    let start = Instant::now();
-    for _ in 0..100 {
-        borrowings.process()?;
-    }
-    let duration = start.elapsed() / 100; // Average of 100 runs
-    // borrowings.process()?;
-    println!("WARM ENGINE LATENCY (AVG): {:?}", duration);
+    borrowings.process()?; //process the borrowings
     Ok(())
 }

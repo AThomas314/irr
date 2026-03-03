@@ -1,7 +1,7 @@
 //This module contains the logic to compute the irr
 use crate::consts::INV_365_25;
 use crate::errors::BorrowingError;
-use log::debug;
+use log::{debug, warn};
 pub fn compute_irr(
     payment_dates: &[i32],
     payments: &[f64],
@@ -13,19 +13,10 @@ pub fn compute_irr(
     mut guess: f64,
     tol: f64,
 ) -> Result<f64, BorrowingError> {
-    // debug!(" {:#?} , {:#?} ", op_bal, op_bal_date);
-    // debug!("payments dates first {:#?}", payment_dates.first());
-    // debug!("payments first {:#?}", payments.first());
-    // debug!(
-    //     "disbursements dates first {:#?}",
-    //     disbursements_dates.first()
-    // );
-    // debug!("disbursements first {:#?}", disbursements.first());
-    // debug!("payments dates last {:#?}", payment_dates.last());
-    // debug!("payments last {:#?}", payments.last());
-    // debug!("disbursements dates last {:#?}", disbursements_dates.last());
-    // debug!("disbursements last {:#?}", disbursements.last());
-    for i in 0..=100 {
+    for i in 0..100 {
+        // Shouldn't take more than 100 iterations.
+
+        /// Uses the Newton-Raphson method find the IRR
         let daily_rate = guess * INV_365_25;
         let inv_ddf = 1.0 / (1.0 + daily_rate);
         let (npv_p, grad_p): (f64, f64) = payment_dates
@@ -66,14 +57,10 @@ pub fn compute_irr(
         let grad = grad_d + grad_p + grad_ob;
         let step = npv / grad;
         if npv.abs().le(&tol) {
-            // debug!(
-            //     "TERMINAL NPV AT {:#?} ITERATIONS {:#?} with irr {:#?} ",
-            //     i, npv, guess
-            // );
             return Ok(guess);
         }
         if step.abs() < f64::EPSILON {
-            debug!(
+            warn!(
                 "TERMINAL NPV {:#?} . GRADIENT DISAPPEARED at {:#?} iterations with rate{:#?}",
                 npv, i, guess
             );
@@ -81,8 +68,7 @@ pub fn compute_irr(
         }
         guess -= step * 365.25;
     }
-    println!("{:#?}", guess);
-    debug!("100 iterations done");
+
     Ok(guess)
 }
 pub fn compute_arrays(
@@ -108,10 +94,6 @@ pub fn compute_arrays(
     interest_rates_padded: &mut [f64],
     start: usize,
 ) {
-    // debug!(
-    //     "opening_balance {:#?},start_date {:#?} , cutoff {:#?} , irr {:#?}",
-    //     opening_balance, start_date, cutoff, irr
-    // );
     let capacity = cutoff as usize - start_date as usize + 1 as usize;
     for ((((&date, &amt), &int), &pri), &rates) in payment_dates // ONLY WORKS BECAUSE THE SLICES HAVE THE SAME LENGTH
         .iter()
@@ -148,22 +130,6 @@ pub fn compute_arrays(
         op_bal[start + i] = opening_balance;
         cl_bal[start + i] = closing;
         interest[start + i] = int_amt;
-        // debug!("i=={:#?}", i);
-        // debug!("d_amt {:#?}", d_amt);
-        // debug!("p_amt {:#?}", p_amt);
-        // debug!("irr {:#?}", daily_irr);
-        // debug!("opening_balance {:#?}", opening_balance);
-        // debug!("int_amt {:#?}", int_amt);
-        // debug!("closing {:#?}", closing);
-        // debug!("\n");
-
-        // op_bal.push(opening_balance);
-        // interest.push(int_amt);
-        // cl_bal.push(closing);
         opening_balance = closing;
     }
-    // println!(
-    //     "{:#?},{:#?},{:#?},{:#?},{:#?}",
-    //     op_bal, cl_bal, interest, payments_padded, disbursements_padded
-    // );
 }

@@ -9,13 +9,5 @@ rustflags = [
     # "-C", "linker-plugin-lto",
     "-C", "force-frame-pointers=yes",
     "-C", "link-arg=/DEBUG",
+    "-C", "target-cpu=native"
 ]
-
-[profile.profile]
-inherits = "release"
-debug = 2
-split-debuginfo = "off"
-strip = "none"
-lto = "fat"
-codegen-units = 1
-panic = "abort"
