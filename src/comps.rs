@@ -14,7 +14,7 @@ pub fn compute_irr(
     tol: f64,
 ) -> Result<f64, BorrowingError> {
     for i in 0..100 {
-        // Shouldn't take more than 100 iterations.
+        // Shouldn't take more than 100 iterations anyway.
 
         /// Uses the Newton-Raphson method find the IRR
         let daily_rate = guess * INV_365_25;

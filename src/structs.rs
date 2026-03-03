@@ -163,7 +163,7 @@ impl Borrowings {
                         0.0,
                         0,
                         cur_disbursements_dates[0],
-                        0.1,
+                        interest_rates[0],
                         0.001,
                     )?;
                     let capacity =
@@ -278,6 +278,8 @@ impl Borrowings {
                             // debug!("disbursements_slice {:#?}", disbursements_slice);
                             let cur_total_payments =
                                 &total_payments[payments_slice.start..payments_slice.end];
+                            let cur_interest_rates =
+                                &interest_rates[payments_slice.start..payments_slice.end];
                             // debug!("payments_slice {:#?}", payments_slice);
                             let (cur_total_standalone_disbursements, cur_disbursements_dates) =
                                 if let Some(slice) = disbursements_slice {
@@ -304,7 +306,7 @@ impl Borrowings {
                                 opening_balance,
                                 opening_balance_date,
                                 first_disb_date,
-                                0.1,
+                                cur_interest_rates[0],
                                 0.001,
                             )?;
                             if let Some(next_amendment) = payments_amendment_splits.get(i + 1) {
@@ -314,7 +316,7 @@ impl Borrowings {
                                     cur_total_payments,
                                     interest_payments,
                                     principal_payments,
-                                    interest_rates,
+                                    cur_interest_rates,
                                     cur_disbursements_dates,
                                     cur_total_standalone_disbursements,
                                     opening_balance,
@@ -339,7 +341,7 @@ impl Borrowings {
                                     cur_total_payments,
                                     interest_payments,
                                     principal_payments,
-                                    interest_rates,
+                                    cur_interest_rates,
                                     cur_disbursements_dates,
                                     cur_total_standalone_disbursements,
                                     opening_balance,
