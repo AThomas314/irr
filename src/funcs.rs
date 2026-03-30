@@ -19,6 +19,7 @@ use polars_arrow::array::{BinaryViewArrayGeneric, PrimitiveArray};
 
 use std::ops::Range;
 use std::usize;
+/// Defines the schema of the disbursements file and reads it as a polars Dataframe
 pub fn read_disbursements(path: &str) -> Result<DataFrame, BorrowingError> {
     let schema = Schema::from_iter(vec![
         Field::new(PlSmallStr::from_str(DATE_COL), DataType::String),

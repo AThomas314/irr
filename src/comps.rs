@@ -17,6 +17,42 @@
 use crate::consts::INV_365_25;
 use crate::errors::BorrowingError;
 use log::warn;
+
+/// Calculates the Internal Rate of Return (IRR) for a loan portfolio using the Newton-Raphson method.
+/// The function finds the root of the Net Present Value (NPV) equation:
+///
+/// $$NPV = \sum_{t} \frac{P_t}{(1 + r)^t} = 0$$
+///
+/// Where:
+/// * $P_t$ is the cash flow at time $t$.
+/// * $r$ is the daily effective interest rate derived from the annualized `guess`.
+///
+/// It utilizes the derivative (gradient) of the NPV function to iteratively approach the
+/// solution (Newton's Method):
+///
+/// $$x_{n+1} = x_n - \frac{f(x_n)}{f'(x_n)}$$
+///
+/// # Arguments
+///
+/// * `payment_dates`: A slice of epoch-based integers representing the dates of payments.
+/// * `payments`: A slice of cash inflows (positive values).
+/// * `disbursements_dates`: A slice of dates for loan disbursements.
+/// * `disbursements`: A slice of cash outflows (processed as negative flows).
+/// * `op_bal`: The opening balance of the loan tranche.
+/// * `op_bal_date`: The date the opening balance was established.
+/// * `ref_date`: The reference date (Day 0) for calculating time deltas ($t$).
+/// * `guess`: Initial annualized interest rate (e.g., 0.10 for 10%).
+/// * `tol`: Convergence tolerance for the NPV (e.g., 0.001).
+///
+/// # Returns
+///
+/// * `Ok(f64)`: The annualized IRR that brings NPV to within `tol`.
+/// * `Err(BorrowingError)`: If convergence fails or a mathematical error occurs.
+///
+/// # Performance Note
+///
+/// This function is the primary hotspot in the execution kernel. It avoids heap allocations
+/// by operating on primitive slices and uses `.powi()` for fast integer-based exponentiation
 pub fn compute_irr(
     payment_dates: &[i32],
     payments: &[f64],
@@ -31,7 +67,6 @@ pub fn compute_irr(
     for i in 0..100 {
         // Shouldn't take more than 100 iterations anyway.
 
-        // Uses the Newton-Raphson method find the IRR
         let daily_rate = guess * INV_365_25;
         let inv_ddf = 1.0 / (1.0 + daily_rate);
         let (npv_p, grad_p): (f64, f64) = payment_dates
@@ -85,6 +120,32 @@ pub fn compute_irr(
 
     Ok(guess)
 }
+/// Materializes the daily loan schedule arrays based on a calculated IRR.
+/// # Logic Flow
+/// 1. **Padding Phase**: Sparse transaction slices are zipped and mapped into
+///    the `padded` buffers at their respective date offsets.
+/// 2. **Broadcasting Phase**: The IRR is filled across the target range.
+/// 3. **Calculation Phase**: A single pass over the daily range computes the
+///    opening balance, effective interest, and closing balance using the
+///    IFRS 9 amortized cost methodology.
+///
+/// # Arguments
+/// * `payment_dates` / `payments`: Sparse slices of payment data.
+/// * `opening_balance`: The starting balance for this tranche or amendment period.
+/// * `start_date` / `cutoff`: The temporal boundaries (inclusive) for the daily schedule.
+/// * `irr`: The Annualized Effective Interest Rate to be applied.
+/// * `op_bal` / `cl_bal` / `interest`: Mutable slices (buffers) where the resulting
+///    daily schedule is written.
+/// * `start`: The index offset in the global buffers where this tranche begins.
+///
+/// # Performance Mechanics
+/// * **Struct-of-Arrays (SoA)**: By accepting multiple mutable slices instead of a
+///   `Vec<Row>`, this function maintains high cache hit rates and allows for
+///   SIMD-friendly sequential writes.
+/// * **Single Pass**: The core balance calculation is done in a single loop over
+///   `capacity`, ensuring $O(N)$ complexity relative to the number of days.
+/// * **Bounds Safety**: The function uses explicit `idx` checks against `capacity`
+///   to prevent out-of-bounds writes before the actual buffer indexing.
 pub fn compute_arrays(
     payment_dates: &[i32],
     payments: &[f64],

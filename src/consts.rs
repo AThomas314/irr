@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+/// All the constants that will be required are defined seperately here
 //Input DataFrames
 pub const LOAN_ID: &str = "Loan ID";
 pub const LOCATION: &str = "Location";

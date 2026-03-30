@@ -25,6 +25,18 @@ use polars_arrow::array::{
 use rayon::prelude::*;
 use std::fs::File;
 use std::ops::{Div, Mul, Range};
+/// The core data container for the loan portfolio, utilizing a Struct-of-Arrays (SoA) layout.
+///
+/// Instead of storing a collection of loan objects, this struct flattens all loan data
+/// into contiguous Arrow arrays (`PrimitiveArray` and `BinaryViewArray`). This ensures
+/// that when the [process] method iterates over loans, the CPU can pre-fetch data
+/// into the L1/L2 cache with maximum efficiency.
+///
+/// # Layout Strategy
+/// - **Global Arrays**: Store all transaction data (payments/disbursements) for all loans
+///   in large, contiguous buffers.
+/// - **Range Offsets**: Uses `Vec<Range<usize>>` to act as a "pointer" system, mapping
+///   a specific loan ID to its slice within the global transaction arrays.
 #[derive(Debug)]
 pub struct Borrowings {
     //class definition
@@ -45,6 +57,17 @@ pub struct Borrowings {
 }
 
 impl Borrowings {
+    /// Orchestrates the initial ETL and SoA transformation of the loan data.
+    ///
+    /// # Process Flow
+    /// 1. **Data Integrity**: Performs semi-joins between payments and disbursements
+    ///    to ensure only loans present in both datasets are processed.
+    /// 2. **Rechunking**: Calls `.rechunk_mut()` to ensure all Polars chunks are
+    ///    contiguous before moving data into Arrow arrays. (Necessary to prevent panics)
+    /// 3. **Array Extraction**: Materializes raw DataFrames into high-performance
+    ///    `PrimitiveArray` and `BinaryViewArray` types.
+    /// 4. **Range Indexing**: Calculates the `payments_ranges` and `disbursements_ranges`
+    ///    which allow O(1) access to a loan's specific transactions during the [process] phase.
     pub fn new(
         // __init__
         mut payments_df: DataFrame,
@@ -97,6 +120,24 @@ impl Borrowings {
             disbursements_ranges,
         }) //Create the Borrowings struct
     }
+
+    /// The high-performance execution kernel that computes IRR and Amortization for the portfolio.
+    ///
+    /// # Parallelism
+    /// Uses `rayon` to distribute loan-level calculations across all available CPU cores.
+    /// Each thread operates on its own slice of the global SoA buffers, eliminating
+    /// data contention and mutex overhead.
+    ///
+    /// # IFRS Amendment Logic
+    /// This method handles multi-tranche/amended loans by:
+    /// 1. Splitting a loan's timeline into "Amendment Windows" based on `amendment_dates`.
+    /// 2. Recursively computing the IRR for each window using the [compute_irr] kernel.
+    /// 3. Passing the closing balance of one window as the opening balance of the next
+    ///    to maintain accounting continuity.
+    ///
+    /// # Output
+    /// Materializes the final daily schedule via [build_as_dataframe] and writes
+    /// results to `output.csv`.
 
     pub fn process(&self) -> Result<(), BorrowingError> {
         let _ =

@@ -16,6 +16,8 @@
 use polars::error::PolarsError;
 use thiserror;
 use tokio::task::JoinError;
+///This struct is created using the thiserror crate to help automate converting from one error type to another to make it easier to propogate errors using the try operator
+/// and avoid unwraps
 #[derive(thiserror::Error, Debug)]
 pub enum BorrowingError {
     #[error("Polars Function Failed: {0}")]
