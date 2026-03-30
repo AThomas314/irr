@@ -1,7 +1,22 @@
+// Copyright (C) 2026 Ashish Thomas (Ashish T Susikaran)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 //This module contains the logic to compute the irr
 use crate::consts::INV_365_25;
 use crate::errors::BorrowingError;
-use log::{debug, warn};
+use log::warn;
 pub fn compute_irr(
     payment_dates: &[i32],
     payments: &[f64],
@@ -16,7 +31,7 @@ pub fn compute_irr(
     for i in 0..100 {
         // Shouldn't take more than 100 iterations anyway.
 
-        /// Uses the Newton-Raphson method find the IRR
+        // Uses the Newton-Raphson method find the IRR
         let daily_rate = guess * INV_365_25;
         let inv_ddf = 1.0 / (1.0 + daily_rate);
         let (npv_p, grad_p): (f64, f64) = payment_dates
@@ -25,10 +40,9 @@ pub fn compute_irr(
             .map(|(&date, &p)| {
                 let t = date - ref_date;
                 let discount = inv_ddf.powi(t);
-                // let discount = pow(inv_ddf, t as f64);
+
                 let npv = p * discount;
                 let grad = -t as f64 * npv * inv_ddf;
-                // debug!("{:#?}; {:#?}; {:#?}", t, p, npv);
                 (npv, grad)
             })
             .fold((0.0, 0.0), |acc, x| (acc.0 + x.0, acc.1 + x.1));

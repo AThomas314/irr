@@ -1,8 +1,23 @@
+// Copyright (C) 2026 Ashish Thomas (Ashish T Susikaran)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 use crate::comps::{compute_arrays, compute_irr};
 use crate::consts::*;
 use crate::errors::BorrowingError;
 use crate::funcs::*;
-use log::{debug, warn};
+use clap::*;
 use polars::prelude::*;
 use polars_arrow::array::{
     BinaryViewArrayGeneric, MutableArray, MutablePrimitiveArray, PrimitiveArray,
@@ -10,7 +25,6 @@ use polars_arrow::array::{
 use rayon::prelude::*;
 use std::fs::File;
 use std::ops::{Div, Mul, Range};
-use std::time::Instant;
 #[derive(Debug)]
 pub struct Borrowings {
     //class definition
@@ -26,7 +40,6 @@ pub struct Borrowings {
     date_payments: PrimitiveArray<i32>,           //len = length of payments file
     date_disbursements: PrimitiveArray<i32>,      //len = length of disbursements file
     standalone_disbursements: PrimitiveArray<f64>, //len = length of disbursements file
-    consol_disbursements: PrimitiveArray<f64>,    //len = length of disbursements file
     payments_ranges: Vec<Range<usize>>,           // len = num loans
     disbursements_ranges: Vec<Range<usize>>,      // len = num loans
 }
@@ -65,7 +78,6 @@ impl Borrowings {
         let date_disbursements: PrimitiveArray<i32> = extract_i32(&disbursements_df, DATE_COL)?; //extract into arrays
         let standalone_disbursements: PrimitiveArray<f64> =
             extractf64(&disbursements_df, STANDALONE)?; //extract into arrays
-        let consol_disbursements: PrimitiveArray<f64> = extractf64(&disbursements_df, CONSOL)?; //extract into arrays
         let payments_ranges = create_ranges(&payments_df, ids.len() + 2)?;
         let disbursements_ranges = create_ranges(&disbursements_df, ids.len() + 2)?;
         Ok(Self {
@@ -81,7 +93,6 @@ impl Borrowings {
             date_payments,
             date_disbursements,
             standalone_disbursements,
-            consol_disbursements,
             payments_ranges,
             disbursements_ranges,
         }) //Create the Borrowings struct
@@ -497,4 +508,10 @@ fn build_as_dataframe(
         ])
         .collect()?;
     Ok(df)
+}
+
+#[derive(Parser)]
+pub struct FilePaths {
+    pub payments_path: String,
+    pub disbursements_path: String,
 }

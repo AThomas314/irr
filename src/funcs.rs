@@ -1,3 +1,18 @@
+// Copyright (C) 2026 Ashish Thomas (Ashish T Susikaran)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 use crate::{consts::*, errors::BorrowingError};
 use polars::prelude::*;
 use polars_arrow::array::{BinaryViewArrayGeneric, PrimitiveArray};
@@ -203,7 +218,6 @@ pub fn unique_loan_ids(df: DataFrame) -> LazyFrame {
 }
 
 pub fn semi_joins(df: DataFrame, other: LazyFrame) -> Result<DataFrame, BorrowingError> {
-    // Keeps the rows only where a match is found, so that if only one of payments or disbursements is found, we can
     Ok(df
         .lazy()
         .join(

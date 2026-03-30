@@ -2,8 +2,11 @@
 name = "irr"
 version = "0.0.1"
 edition = "2024"
-
+authors = ["Ashish Thomas <ashishthomassm@gmail.com>"]
+license = "AGPL-3.0-or-later OR LicenseRef-Commercial"
+description = "High-performance financial engine for IRR and borrowing computations. Built with Rust, Polars, and Arrow; featuring IFRS compliance, Zero-Copy architecture, and a SIMD-optimized Struct-of-Arrays (SoA) layout."
 [dependencies]
+clap = { version = "4.6.0", features = ["derive"] }
 env_logger = "0.11.8"
 log = "0.4.29"
 polars = { version = "0.53.0", features = [  "lazy", "strings", "timezones","semi_anti_join","cum_agg"] }
@@ -12,11 +15,9 @@ rayon = "1.11.0"
 thiserror = "2.0.17"
 tokio = "1.49.0"
 
-# Mimalloc only for Windows targets
 [target.'cfg(windows)'.dependencies]
 mimalloc = "0.1"
 
-# Jemalloc only for Linux targets
 [target.'cfg(target_os = "linux")'.dependencies]
 tikv-jemallocator = "0.6.1"
 
@@ -39,4 +40,4 @@ panic = "abort"
 opt-level = 3
 debug = 2
 strip = false
-split-debuginfo = "packed" # This forces the creation of the .pdb file next to the .exe
+split-debuginfo = "packed"
